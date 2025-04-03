@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../imgui_PeterCdev"
+		},
+		{
+			"path": "../matplotlib-cpp"
+		},
+		{
+			"path": "../Pangolin"
+		}
+	],
+	"settings": {}
+}

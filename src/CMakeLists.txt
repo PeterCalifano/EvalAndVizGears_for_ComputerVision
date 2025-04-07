@@ -66,6 +66,7 @@ target_link_libraries(${lib_name} PUBLIC cuda_compile_settings ${project_name}_i
 target_link_libraries(${lib_name} PUBLIC 
                                   ${OpenCV_LIBS} 
                                   Eigen3::Eigen 
+                                  Pangolin
                                   #gdt
                                   #glfw 
                                   ${OPENGL_LIBRARIES}

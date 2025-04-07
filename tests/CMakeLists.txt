@@ -15,8 +15,9 @@ set(EXCLUDED_LIST "test_to_exclude")  # Specify files to exclude WE
 set(TESTS_LIST "") 
 
 # Add subdirectory 
-add_subdirectory(template_test)
+#add_subdirectory(template_fixtures)
+add_subdirectory(core)
 
 # Add tests to build
-add_tests(${project_name} EXCLUDED_LIST TESTS_LIST cuda_compile_settings CATCH2_TEST_PROPERTIES)
+add_tests(${project_name} EXCLUDED_LIST TESTS_LIST cuda_compile_settings CATCH2_TEST_PROPERTIES Catch2::Catch2WithMain)
 set(TESTS_LIST ${TESTS_LIST} PARENT_SCOPE) # Export list of tests to parent scope (applied ONLY here)

@@ -9,10 +9,11 @@ cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 set(CMAKE_BUILD_TYPE Debug)
 
 # PROJECT DEFINITION
-set(project_name "template_project")
+set(project_name "VizTools_for_SpaceNav")
 
 option(ENABLE_OPTIX "Enable OptiX" OFF)
 option(ENABLE_CUDA "Enable CUDA" OFF)
+option(SANITIZER "Enable Address and Undefined Sanitizer" OFF)
 
 set(languages CXX) # ACHTUNG: PTX code requires C language!
 
@@ -48,7 +49,7 @@ include(GNUInstallDirs)
 # OPTIONS
 option(ENABLE_OMP "Enable OpenMP" OFF)
 if(NOT DEFINED NUM_OMP_THREADS)
-    set(NUM_OMP_THREADS 4 "Number of OpenMP threads to use")
+    set(NUM_OMP_THREADS 8 "Number of OpenMP threads to use")
 endif()
 
 option(USE_SYS_OPTIX_SDK "Use Optix system folder if specified" OFF)
@@ -67,10 +68,13 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -fmax-errors=3 -Wall  -O3")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -fmax-errors=3 -Wall -O3")
 
 add_library(sanitizer_target_settings INTERFACE)
-target_compile_options(sanitizer_target_settings INTERFACE
-    $<$<CONFIG:DEBUG>: -fsanitize=address,undefined>
-    $<$<CONFIG:RELEASE>: -fsanitize=address,undefined>
-)
+
+if (SANITIZER)
+  target_compile_options(sanitizer_target_settings INTERFACE
+      $<$<CONFIG:DEBUG>: -fsanitize=address,undefined>
+      $<$<CONFIG:RELEASE>: -fsanitize=address,undefined>
+  )
+endif() 
 
 # Guard against in-source builds
 if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
@@ -82,12 +86,13 @@ message(STATUS "====================  Dependencies ===========================")
 
 # LIBRARY DEPENDENCIES DEFINITION
 find_package( Eigen3 3.3 REQUIRED )
+find_package( Pangolin REQUIRED )  # Added Pangolin dependency
 find_package( Doxygen )
-find_package( OpenGL )
+find_package( OpenGL)
 find_package( CUDAToolkit 12.0) 
 
 # Set the dependencies for the automated export
-set(TARGET_DEPS Eigen3 OpenGL CUDAToolkit)
+set(TARGET_DEPS Eigen3 OpenGL CUDAToolkit Pangolin)
 message(STATUS "Target dependencies: ${TARGET_DEPS}")
 
 #find_package( GTSAM 4.0 REQUIRED )

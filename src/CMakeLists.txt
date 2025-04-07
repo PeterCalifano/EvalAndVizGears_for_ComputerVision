@@ -15,11 +15,8 @@ if (ENABLE_OPTIX)
 endif()
 
 # Add subdirectories with src files
-message(STATUS "Adding module: template_src")
-add_subdirectory(template_src)
-
-message(STATUS "Adding module: .programs")
-add_subdirectory(.programs)
+message(STATUS "Adding module: core")
+add_subdirectory(core)
 
 # Exclude EXCLUDED_LIST from the list of src files
 set(EXCLUDED_LIST "")
@@ -129,6 +126,7 @@ install(FILES
 export(EXPORT ${lib_name}
   FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/${project_name}Target.cmake"
 )
+
 # Add and build programs subdirectory
-#message(STATUS "Building binary programs")
-#add_subdirectory( .programs )
+message(STATUS "Building binary programs")
+add_subdirectory( .programs )

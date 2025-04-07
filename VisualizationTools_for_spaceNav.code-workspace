@@ -11,6 +11,12 @@
 		},
 		{
 			"path": "../Pangolin"
+		},
+		{
+			"path": "../cpp_cuda_template_project"
+		},
+		{
+			"path": "../cpp_template_project"
 		}
 	],
 	"settings": {}

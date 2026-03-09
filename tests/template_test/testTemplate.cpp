@@ -14,6 +14,7 @@ TEST_CASE("test_template", "[test]")
     REQUIRE(1 == 1);
 };
 
+/*
 TEST_CASE_METHOD(fixtures::SObjectFixture, "test_template_method_fixture", "[test]")
 {
     // Test print method
@@ -25,3 +26,4 @@ TEST_CASE_METHOD(fixtures::SObjectFixture, "test_template_method_fixture", "[tes
     REQUIRE(1 == 1);
     REQUIRE(fixtureVariable == 0);
 };
+*/

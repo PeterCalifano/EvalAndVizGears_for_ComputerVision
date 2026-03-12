@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 # PROJECT DEFINITION
 set(project_name "example_consumer_project")
 
-# Assumes one has built the template_project with install in the root
+# Assumes one has built the EvalAndVizGears_for_ComputerVision with install in the root
 set(DEPENDENCY_ROOT_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/../../")
 
 # Check if it exists 
@@ -20,28 +20,28 @@ if (NOT EXISTS "${DEPENDENCY_ROOT_PREFIX}/install")
 endif()
 
 if(NOT EXISTS "${DEPENDENCY_ROOT_PREFIX}/install/lib/cmake/")
-    message(FATAL_ERROR "Please build and install the template_project first.")
+    message(FATAL_ERROR "Please build and install the EvalAndVizGears_for_ComputerVision first.")
 endif()
 
 project(${project_name} VERSION 0.1.0 LANGUAGES CXX CUDA)
 
-# Tell cmake where to find the template_project
-set(template_project_DIR "${DEPENDENCY_ROOT_PREFIX}/install/lib/cmake/template_project")
-find_package(template_project REQUIRED)
+# Tell cmake where to find the EvalAndVizGears_for_ComputerVision
+set(EvalAndVizGears_for_ComputerVision_DIR "${DEPENDENCY_ROOT_PREFIX}/install/lib/cmake/EvalAndVizGears_for_ComputerVision")
+find_package(EvalAndVizGears_for_ComputerVision REQUIRED)
 
 # Alternatives: 
-# 1. find_package(template_project REQUIRED CONFIG PATHS "${DEPENDENCY_ROOT_PREFIX}/install/lib/cmake/")
-# 2. When configuring the project: cmake -DCMAKE_PREFIX_PATH=/path/to/template_project_install (...)
-# 3. Set CMAKE_PREFIX_PATH in the environment: export CMAKE_PREFIX_PATH=/path/to/template_project_install
+# 1. find_package(EvalAndVizGears_for_ComputerVision REQUIRED CONFIG PATHS "${DEPENDENCY_ROOT_PREFIX}/install/lib/cmake/")
+# 2. When configuring the project: cmake -DCMAKE_PREFIX_PATH=/path/to/EvalAndVizGears_for_ComputerVision_install (...)
+# 3. Set CMAKE_PREFIX_PATH in the environment: export CMAKE_PREFIX_PATH=/path/to/EvalAndVizGears_for_ComputerVision_install
 
 
 # Add executable target
 add_executable(${project_name} example_project.cpp)
 
 # Link target
-target_link_libraries(${project_name} PRIVATE template_project::template_project)
-#target_include_directories(${project_name} PRIVATE ${template_project_INCLUDE_DIRS})
+target_link_libraries(${project_name} PRIVATE EvalAndVizGears_for_ComputerVision::EvalAndVizGears_for_ComputerVision)
+#target_include_directories(${project_name} PRIVATE ${EvalAndVizGears_for_ComputerVision_INCLUDE_DIRS})
 
-message(WARNING "Note that template_project_INCLUDE_DIRS directories is empty because by default it is not built: ${template_project_INCLUDE_DIRS}\nInstead, includes directly transitions through the linekd target.")
-get_target_property(INC template_project::template_project INTERFACE_INCLUDE_DIRECTORIES)
+message(WARNING "Note that EvalAndVizGears_for_ComputerVision_INCLUDE_DIRS directories is empty because by default it is not built: ${EvalAndVizGears_for_ComputerVision_INCLUDE_DIRS}\nInstead, includes directly transitions through the linekd target.")
+get_target_property(INC EvalAndVizGears_for_ComputerVision::EvalAndVizGears_for_ComputerVision INTERFACE_INCLUDE_DIRECTORIES)
 message(STATUS "Include directories: ${INC}\n")

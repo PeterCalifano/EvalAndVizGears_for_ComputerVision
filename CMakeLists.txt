@@ -18,6 +18,7 @@ endif()
 # Major options
 option(ENABLE_OPTIX "Enable OptiX" OFF)
 option(ENABLE_CUDA "Enable CUDA" OFF)
+option(BUILD_SHARED_LIBS "Build libraries as shared" ON)
 include(cmake/HandleOpenMP.cmake)
 
 set(languages CXX) # ACHTUNG: PTX code requires C language!
@@ -285,7 +286,10 @@ message(STATUS "====================  Dependencies ===========================")
 
 # LIBRARY DEPENDENCIES DEFINITION
 find_package( Eigen3 3.4 REQUIRED )
-find_package( Pangolin REQUIRED )
+option(ENABLE_PANGOLIN "Enable Pangolin visualization" OFF)
+if(ENABLE_PANGOLIN)
+  find_package( Pangolin REQUIRED )
+endif()
 find_package( Doxygen QUIET)
 
 # Handle Catch2 tools
@@ -316,7 +320,7 @@ include(cmake/HandleSubmodules.cmake)
 handle_submodules() # Automatically adds subdirectories in lib/ (and build them if CMakeLists.txt found)
 
 # Set the dependencies for the automated export
-set(EXPORT_TARGET_DEPS Eigen3 Pangolin) # TODO make automatic based on used packages
+set(EXPORT_TARGET_DEPS Eigen3 OpenCV) # TODO make automatic based on used packages
 
 if(ENABLE_CUDA)
   list(APPEND EXPORT_TARGET_DEPS CUDAToolkit)
@@ -327,7 +331,7 @@ endif()
 if(ENABLE_TBB)
   list(APPEND EXPORT_TARGET_DEPS TBB)
 endif()
-if(SPDLOG_ENABLED)
+if(SPDLOG_ENABLED AND SPDLOG_EXTERNAL_PACKAGE)
   list(APPEND EXPORT_TARGET_DEPS spdlog)
 endif()
 
@@ -387,7 +391,7 @@ else()
 endif()
 
 # Add catch2 for unit testing
-find_package(OpenCV QUIET)
+find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui imgcodecs)
 
 # Create the installation target list 
 set(installable_targets)
@@ -511,6 +515,7 @@ message(STATUS "CMAKE_INSTALL_PREFIX                      : ${CMAKE_INSTALL_PREF
 message(STATUS "CMAKE_INSTALL_LIBDIR                      : ${CMAKE_INSTALL_LIBDIR}")
 message(STATUS "CMAKE_INSTALL_INCLUDEDIR                  : ${CMAKE_INSTALL_INCLUDEDIR}")
 message(STATUS "CMAKE_INSTALL_BINDIR                      : ${CMAKE_INSTALL_BINDIR}")
+message(STATUS "BUILD_SHARED_LIBS                         : ${BUILD_SHARED_LIBS}")
 
 # Build type
 if(NOT MSVC AND NOT XCODE_VERSION)

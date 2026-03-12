@@ -2,6 +2,7 @@
 /*debug*/
 /*install*/
 
+callgrind.out*
 VERSION
 **/*bak*
 .gitmodules
@@ -43,3 +44,4 @@ xcode/
 .vscode/browse.vc.db
 .vscode/browse.vc.db-shm
 .vscode/browse.vc.db-wal
+src/CMakeLists.txt

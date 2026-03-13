@@ -1,3 +1,6 @@
+/// @file
+/// @brief Standalone example executable for validating a consumer-style build.
+
 #include <iostream>
 
 #include <template_src/placeholder.h>
@@ -10,6 +13,8 @@
 #include <utils/logging/SpdlogUtils.h>
 #endif
 
+/// @brief Runs the template example application.
+/// @return Process exit status compatible with the hosting shell.
 int main()
 {
 #if SPDLOG_UTILS_ENABLED

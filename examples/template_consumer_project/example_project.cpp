@@ -1,5 +1,10 @@
+/// @file
+/// @brief Consumer-project example demonstrating external linkage against the library.
+
 #include "example_project.h"
 
+/// @brief Runs the template consumer application entry point.
+/// @return Process exit status compatible with the hosting shell.
 int main()
 {
     spdlog_utils::ConfigureDefaultLogging();

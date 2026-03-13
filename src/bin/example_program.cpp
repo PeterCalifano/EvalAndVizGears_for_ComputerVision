@@ -1,3 +1,6 @@
+/// @file
+/// @brief Minimal executable demonstrating library startup and optional logging.
+
 #include <template_src/placeholder.h>
 
 #ifndef SPDLOG_UTILS_ENABLED
@@ -8,6 +11,8 @@
 #include <utils/logging/SpdlogUtils.h>
 #endif
 
+/// @brief Runs the example executable built from the main project tree.
+/// @return Process exit status compatible with the hosting shell.
 int main()
 {
 #if SPDLOG_UTILS_ENABLED

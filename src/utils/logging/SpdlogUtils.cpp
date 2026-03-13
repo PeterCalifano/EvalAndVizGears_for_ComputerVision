@@ -1,3 +1,6 @@
+/// @file
+/// @brief Implements shared spdlog configuration and lookup helpers.
+
 #include "SpdlogUtils.h"
 
 #include <algorithm>
@@ -17,6 +20,8 @@ namespace
     constexpr auto kDefaultLoggerName = "spdlog_utils_default";
     constexpr auto kDefaultPattern = "[%H:%M:%S] [%^%l%$] [%n] %v";
 
+    /// @brief Returns the shared sink used by all utility-created loggers.
+    /// @return Color-capable stderr sink with the project logging pattern applied.
     std::shared_ptr<spdlog::sinks::stderr_color_sink_mt> GetDefaultSink_()
     {
         static auto objSink_ = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
@@ -30,6 +35,10 @@ namespace
         return objSink_;
     }
 
+    /// @brief Creates and registers a logger backed by the shared default sink.
+    /// @param charLoggerName Logger registry name.
+    /// @param enumLevel Initial spdlog level to apply.
+    /// @return Registered logger instance.
     std::shared_ptr<spdlog::logger> CreateLogger_(const std::string &charLoggerName,
                                                   const spdlog::level::level_enum enumLevel)
     {
@@ -40,6 +49,9 @@ namespace
         return objLogger_;
     }
 
+    /// @brief Converts an arbitrary ASCII string to lowercase for comparisons.
+    /// @param charInput Input string view to normalize.
+    /// @return Lowercased copy of the input.
     std::string LowerString_(std::string_view charInput)
     {
         std::string charLowered_(charInput.begin(), charInput.end());
@@ -54,6 +66,7 @@ namespace
     }
 } // namespace
 
+/// @copydoc spdlog_utils::ConfigureDefaultLogging
 void ConfigureDefaultLogging(const spdlog::level::level_enum level)
 {
     auto objDefaultLogger_ = spdlog::get(kDefaultLoggerName);
@@ -68,6 +81,7 @@ void ConfigureDefaultLogging(const spdlog::level::level_enum level)
     spdlog::set_level(level);
 }
 
+/// @copydoc spdlog_utils::GetLogger
 std::shared_ptr<spdlog::logger> GetLogger(std::string_view charComponentName)
 {
     if (charComponentName.empty())
@@ -88,6 +102,7 @@ std::shared_ptr<spdlog::logger> GetLogger(std::string_view charComponentName)
     return objLogger_;
 }
 
+/// @copydoc spdlog_utils::TryParseLogLevel
 std::optional<spdlog::level::level_enum> TryParseLogLevel(std::string_view charLevelName)
 {
     if (charLevelName.empty())
@@ -151,6 +166,7 @@ std::optional<spdlog::level::level_enum> TryParseLogLevel(std::string_view charL
     return std::nullopt;
 }
 
+/// @copydoc spdlog_utils::InitializeLogLevelFromEnvironment
 bool InitializeLogLevelFromEnvironment(std::string_view charEnvVarName)
 {
     const char *charEnvValue_ = std::getenv(std::string(charEnvVarName).c_str());

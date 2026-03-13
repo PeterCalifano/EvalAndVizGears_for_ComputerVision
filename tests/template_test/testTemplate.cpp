@@ -1,3 +1,6 @@
+/// @file
+/// @brief Template Catch2 file kept as a scaffold for future test additions.
+
 #include <iostream>
 #include <template_fixtures/test_fixtures.h>
 

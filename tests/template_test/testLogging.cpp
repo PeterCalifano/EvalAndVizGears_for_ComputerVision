@@ -1,3 +1,6 @@
+/// @file
+/// @brief Catch2 coverage for the shared spdlog utility wrappers.
+
 #include <catch2/catch_test_macros.hpp>
 #include <utils/logging/SpdlogUtils.h>
 
@@ -9,9 +12,12 @@
 
 namespace
 {
+/// @brief Restores an environment variable to its original state after a test.
 class CEnvironmentVariableGuard
 {
   public:
+    /// @brief Captures the current value of the target environment variable.
+    /// @param charVariableName Environment variable name to guard.
     explicit CEnvironmentVariableGuard(const std::string &charVariableName)
         : charVariableName_(charVariableName)
     {
@@ -22,6 +28,7 @@ class CEnvironmentVariableGuard
         }
     }
 
+    /// @brief Restores the original environment variable value on teardown.
     ~CEnvironmentVariableGuard()
     {
         if (charPreviousValue_.has_value())
@@ -34,6 +41,8 @@ class CEnvironmentVariableGuard
         }
     }
 
+    /// @brief Sets the guarded environment variable for the current process.
+    /// @param charValue New value to assign while the guard is alive.
     void setValue(const std::string &charValue) const
     {
         setenv(charVariableName_.c_str(), charValue.c_str(), 1);

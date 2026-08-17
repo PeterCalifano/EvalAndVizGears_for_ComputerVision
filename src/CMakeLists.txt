@@ -1,12 +1,9 @@
-set(lib_name ${project_name}) # Default name for the library is project_name
-
-# Add config.h file to build
-configure_file(config.h.in config.h)
+set(lib_name ${LIB_TARGET_NAME})
 
 # Add src files to library
-set(SRC_PATTERN "*.cpp; *.cu")
+set(SRC_PATTERN "*.cpp" "*.cu")
 file(GLOB srcLibFiles RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${SRC_PATTERN})
-file(GLOB srcCudaFilesToPTX "*.ptx.cu")
+list(FILTER srcLibFiles EXCLUDE REGEX "\\.ptx\\.cu$")
 
 # Get current folder name
 get_filename_component(CURRENT_FOLDER_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
@@ -19,7 +16,7 @@ add_subdirectory(core)
 message(STATUS "Adding module: utils")
 add_subdirectory(utils)
 
-if (BUILD_AS_MAIN_PROJECT)
+if (BUILD_AS_MAIN_PROJECT AND ${${BUILD_PROGRAMS_OPTION_NAME}})
   message(STATUS "Adding module: bin")
   add_subdirectory(bin)
 endif()
@@ -57,14 +54,13 @@ else()
   set_target_properties(${lib_name} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 endif()
 
+set_target_properties(${lib_name} PROPERTIES EXPORT_NAME ${project_name})
+if(NOT TARGET ${LIB_NAMESPACE}::${project_name})
+  add_library(${LIB_NAMESPACE}::${project_name} ALIAS ${lib_name})
+endif()
+
 message(STATUS "Configured ${lib_name} as a ${lib_target_type} library target")
 set(PROJECT_LIBRARY_KIND "${lib_target_type}" PARENT_SCOPE)
-
-if (SPDLOG_ENABLED)
-  target_compile_definitions(${lib_name} ${lib_link_scope} SPDLOG_UTILS_ENABLED=1)
-else()
-  target_compile_definitions(${lib_name} ${lib_link_scope} SPDLOG_UTILS_ENABLED=0)
-endif()
 
 # Link sanitizer target only for in-tree builds to avoid export/install deps.
 if (NOT lib_is_header_only AND ENABLE_SANITIZERS AND SANITIZER_TARGET AND TARGET ${SANITIZER_TARGET})
@@ -74,40 +70,9 @@ endif()
 # If need to add other files after add_library, use:
 #target_sources(${lib_name} SHARED ${srcLibFiles})
 
-if ( ENABLE_OPTIX )
-  if (lib_is_header_only)
-    message(FATAL_ERROR "ENABLE_OPTIX requires at least one compilable source file in src/ to embed PTX code into ${lib_name}.")
-  endif()
-
-  message("Library .cu kernels files to compile as PTX: ${srcCudaFilesToPTX}")
-
-  # Build CUDA to PTX code and const char
-  get_target_property(project_interface_INCLUDE_DIRS ${project_name}_include INTERFACE_INCLUDE_DIRECTORIES)
-  if (NOT project_interface_INCLUDE_DIRS)
-    set(project_interface_INCLUDE_DIRS "")
-  endif()
-
-  set(PTX_INCLUDE_DIRS ${CUDAToolkit_INCLUDE_DIRS}
-                      ${OptiX_INCLUDE_DIRS}
-                      ${project_interface_INCLUDE_DIRS}
-                      ) # Include directories for PTX compilation
-
-  cuda_compile_and_embed(embedded_ptx_code ${sm_version} "${PTX_INCLUDE_DIRS}" ${srcCudaFilesToPTX})
-  # NOTE: Macro above sets up the build of CUDA kernels -> PTX code from which OptiX module is built.
-  # Build occurs before compilation and linking of the library (or executables).
-  # Variable embedded_ptx_code must be extern "C" const char within the cpp source code.
-
-  # Add the embedded PTX code to the library
-  target_sources(${lib_name} PRIVATE ${embedded_ptx_code})
-endif()
-
 ### Link targets
 # Project include directories
 target_link_libraries(${lib_name} ${lib_link_scope} ${project_name}_include ${LIB_COMPILE_TARGET})
-
-if (SPDLOG_ENABLED AND SPDLOG_LINK_TARGET)
-  target_link_libraries(${lib_name} ${lib_link_scope} ${SPDLOG_LINK_TARGET})
-endif()
 
 # Link interface target for CUDA
 
@@ -115,19 +80,19 @@ if (ENABLE_CUDA)
   target_link_libraries(${lib_name} ${lib_link_scope} ${CUDA_COMPILE_TARGET})
 endif()
 
-# Link OptiX interface target
-if(ENABLE_OPTIX)
-  target_link_libraries(${lib_name} ${lib_link_scope} ${OPTIX_COMPILE_TARGET})
-endif()
-
 if (ENABLE_OPENGL)
   target_link_libraries(${lib_name} ${lib_link_scope} ${OPENGL_COMPILE_TARGET})
 endif()
 
-# Link profiling interface: gperftools always when found, compile flags only with ENABLE_PROFILING.
-# PRIVATE: profiling is a build-time concern; not propagated to consumers and not exported.
+# Link profiling behavior only when requested by its dedicated options.
+# Default is PRIVATE to keep profiling a build-time concern. Set
+# PROFILING_PROPAGATES_TO_CONSUMERS=ON to make profiling usage requirements PUBLIC.
 if (NOT lib_is_header_only AND TARGET ${PROFILING_COMPILE_TARGET})
-  target_link_libraries(${lib_name} PRIVATE ${PROFILING_COMPILE_TARGET})
+  if (PROFILING_PROPAGATES_TO_CONSUMERS)
+    target_link_libraries(${lib_name} PUBLIC ${PROFILING_COMPILE_TARGET})
+  else()
+    target_link_libraries(${lib_name} PRIVATE ${PROFILING_COMPILE_TARGET})
+  endif()
 endif()
 
 #target_include_directories(${lib_name} INTERFACE ${interface_INCLUDE_DIRS} )
@@ -141,6 +106,8 @@ target_link_libraries(${lib_name} ${lib_link_scope}
                       #${OPENGL_LIBRARIES}
                       )
 
+target_link_libraries(${lib_name} PUBLIC slam-primitives::slam-primitives)
+
 if(ENABLE_PANGOLIN AND Pangolin_FOUND)
   target_link_libraries(${lib_name} ${lib_link_scope} Pangolin)
   target_compile_definitions(${lib_name} ${lib_link_scope} VIZTOOLS_HAS_PANGOLIN=1)
@@ -152,19 +119,12 @@ set(installable_targets ${installable_targets}
                         ${project_name}_include
                         ${LIB_COMPILE_TARGET})
 
-if (SPDLOG_ENABLED AND SPDLOG_LINK_TARGET AND NOT SPDLOG_EXTERNAL_PACKAGE)
-  list(APPEND installable_targets ${SPDLOG_LINK_TARGET})
-endif()
-
 if (TARGET ${PROFILING_COMPILE_TARGET})
   list(APPEND installable_targets ${PROFILING_COMPILE_TARGET})
 endif()
 
 if (ENABLE_CUDA)
   list(APPEND installable_targets ${CUDA_COMPILE_TARGET})
-  if(ENABLE_OPTIX)
-    list(APPEND installable_targets ${OPTIX_COMPILE_TARGET})
-  endif()
 endif()
 
 if (ENABLE_OPENGL)
@@ -177,9 +137,6 @@ message(NOTICE "Added target to installable list: ${installable_targets}")
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/global_includes.h"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${project_name})
 
-# Install config.h file
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/config.h"
-       DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/${project_name})
 # INSTALL CONFIGURATION
 install(
 	TARGETS ${installable_targets}
@@ -197,28 +154,29 @@ include(CMakePackageConfigHelpers)
 install(EXPORT ${project_name}
     FILE "${project_name}Target.cmake"
     NAMESPACE ${project_name}::
-    DESTINATION lib/cmake/${project_name}
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${project_name}
 )
 
 write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/${project_name}ConfigVersion.cmake"
+    "${PROJECT_BINARY_DIR}/${project_name}ConfigVersion.cmake"
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY AnyNewerVersion
 )
 
 configure_package_config_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${project_name}Config.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/${project_name}Config.cmake"
-    INSTALL_DESTINATION lib/cmake/${project_name}
+    "${PROJECT_BINARY_DIR}/${project_name}Config.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${project_name}
 )
 
 install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/${project_name}Config.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/${project_name}ConfigVersion.cmake"
-    DESTINATION lib/cmake/${project_name}
+    "${PROJECT_BINARY_DIR}/${project_name}Config.cmake"
+    "${PROJECT_BINARY_DIR}/${project_name}ConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${project_name}
 )
 
 # Add target export to allow usage of build by other consumer projects
-export(EXPORT ${lib_name}
-  FILE "${CMAKE_CURRENT_BINARY_DIR}/cmake/${project_name}Target.cmake"
+export(EXPORT ${project_name}
+  FILE "${PROJECT_BINARY_DIR}/${project_name}Target.cmake"
+  NAMESPACE ${project_name}::
 )

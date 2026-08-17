@@ -15,7 +15,6 @@ namespace viztools
     {
     }
 
-    /// @copydoc viztools::CTrackTrailRenderer::draw
     void CTrackTrailRenderer::draw(cv::Mat &image,
                                    const std::vector<std::vector<cv::Point2f>> &trails,
                                    const std::vector<cv::Scalar> &colors) const

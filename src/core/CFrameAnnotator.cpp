@@ -23,7 +23,6 @@ CFrameAnnotator::CFrameAnnotator(SOverlayConfig overlay_config,
 {
 }
 
-/// @copydoc viztools::CFrameAnnotator::annotate
 void CFrameAnnotator::annotate(cv::Mat &image,
                                const SFrameAnnotation &annotation) const
 {

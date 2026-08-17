@@ -1,0 +1,37 @@
+{
+  "name": "EvalAndVizGears_for_ComputerVision",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "ROS_DISTRO": "jazzy",
+      "ROS_MODE": "ros2",
+      "ROS_PROFILE": "ros-base"
+    }
+  },
+  "containerEnv": {
+    "ROS_DOMAIN_ID": "42",
+    "ROS_LOCALHOST_ONLY": "1"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/conda:1": {
+      "addCondaForge": true,
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "enableShared": true,
+      "installTools": true,
+      "version": "3.12"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "llvm-vs-code-extensions.vscode-clangd"
+      ]
+    }
+  }
+}

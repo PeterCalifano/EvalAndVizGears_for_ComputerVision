@@ -1,64 +1,68 @@
+# project-ci-template: generic
 name: build_cpplinux
-run-name: Build and test C++ library
+run-name: Build and test EvalAndVizGears_for_ComputerVision
 
 on:
   workflow_dispatch:
     inputs:
       runner:
-        description: "Runner type to use"
+        description: Runner type
         required: true
         default: github-hosted
         type: choice
-        options:
-          - github-hosted
-          - self-hosted
+        options: [github-hosted, self-hosted]
   push:
-    branches:
-      - "master"
-      - "main"
-      - "dev_main"
+    branches: [master, main, develop, "dev*"]
+    tags: ["v*.*.*"]
     paths:
-      - src/**
-      - examples/**
-      - tests/**
-      - lib/**
-      - cmake/**
-      - CMakeLists.txt
-      - build_lib.sh
-      - .github/workflows/build_linux.yml
+      - "src/**"
+      - "examples/**"
+      - "tests/**"
+      - "cmake/**"
+      - "python/**"
+      - "doc/**"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - "build_lib.sh"
+      - "generate_version.sh"
+      - ".github/workflows/build_linux.yml"
   pull_request:
-    branches:
-      - "master"
-      - "main"
-      - "dev_main"
-      - "dev*"
+    branches: [master, main, develop, "dev*"]
     paths:
-      - src/**
-      - examples/**
-      - tests/**
-      - lib/**
-      - cmake/**
-      - CMakeLists.txt
-      - build_lib.sh
-      - .github/workflows/build_linux.yml
+      - "src/**"
+      - "examples/**"
+      - "tests/**"
+      - "cmake/**"
+      - "python/**"
+      - "doc/**"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - "build_lib.sh"
+      - "generate_version.sh"
+      - ".github/workflows/build_linux.yml"
 
 jobs:
-  build:
+  standalone:
     runs-on: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.runner == 'self-hosted' && fromJSON('["self-hosted","Linux","X64"]') || 'ubuntu-latest' }}
+    timeout-minutes: 45
     env:
       BUILD_DIR: build_ci
-      BUILD_TYPE: RelWithDebInfo
-      ENABLE_TBB: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.runner == 'self-hosted' && 'OFF' || 'ON' }}
+      INSTALL_DIR: install_ci
       CTEST_OUTPUT_ON_FAILURE: 1
+      SLAM_PRIMITIVES_REVISION: 05a9c72be25692c965cf688511ac45107bfd382f
+      SLAM_PRIMITIVES_ROOT: ${{ runner.temp }}/slam-primitives-${{ github.run_id }}-${{ github.run_attempt }}
+      SLAM_PRIMITIVES_INSTALL: ${{ runner.temp }}/slam-primitives-install-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-      - name: Install dependencies
+      - name: Install hosted dependencies
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.runner == 'github-hosted' }}
         run: |
-          sudo apt update
-          sudo apt install -y cmake ninja-build g++ ccache libboost-all-dev libeigen3-dev libtbb-dev python3-dev
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++ ccache libeigen3-dev libopencv-dev python3-dev python3-pytest doxygen graphviz
 
       - name: Validate self-hosted prerequisites
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.runner == 'self-hosted' }}
@@ -68,6 +72,7 @@ jobs:
           command -v g++
           command -v ccache
           command -v python3
+          python3 -m pytest --version
 
       - name: Restore compiler cache
         uses: actions/cache@v4
@@ -80,75 +85,42 @@ jobs:
 
       - name: Configure
         run: |
+          git clone https://github.com/PeterCalifano/slam-primitives.git \
+            "${SLAM_PRIMITIVES_ROOT}"
+          git -C "${SLAM_PRIMITIVES_ROOT}" checkout \
+            --detach "${SLAM_PRIMITIVES_REVISION}"
+          cmake -S "${SLAM_PRIMITIVES_ROOT}" \
+            -B "${SLAM_PRIMITIVES_ROOT}/build-ci" -GNinja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_INSTALL_PREFIX="${SLAM_PRIMITIVES_INSTALL}" \
+            -DENABLE_TESTS=OFF \
+            -Dslam-primitives_BUILD_PROGRAMS=OFF \
+            -Dslam-primitives_BUILD_EXAMPLES=OFF \
+            -DCPU_ENABLE_NATIVE_TUNING=OFF
+          cmake --build "${SLAM_PRIMITIVES_ROOT}/build-ci" \
+            --target install --parallel 4
+          ./generate_version.sh
           cmake -S . -B "${BUILD_DIR}" -GNinja \
-            -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/${INSTALL_DIR}" \
+            -DCMAKE_PREFIX_PATH="${SLAM_PRIMITIVES_INSTALL}" \
             -DENABLE_TESTS=ON \
-            -DENABLE_TBB="${ENABLE_TBB}" \
+            -DENABLE_PYTHON_TESTS=ON \
             -DENABLE_CUDA=OFF \
-            -DENABLE_OPTIX=OFF \
             -DENABLE_OPENGL=OFF \
-            -DCPU_ENABLE_NATIVE_TUNING=ON \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCPU_ENABLE_NATIVE_TUNING=OFF \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build "${BUILD_DIR}" --parallel 4
 
-      - name: Show ccache stats
-        run: ccache --show-stats || true
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: cmake-build-tree
-          path: ${{ env.BUILD_DIR }}
-          if-no-files-found: error
-          retention-days: 3
-
-  test:
-    needs: build
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.runner == 'self-hosted' && fromJSON('["self-hosted","Linux","X64"]') || 'ubuntu-latest' }}
-    env:
-      BUILD_DIR: build_ci
-      CTEST_OUTPUT_ON_FAILURE: 1
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install test dependencies
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.runner == 'github-hosted' }}
-        run: |
-          sudo apt update
-          sudo apt install -y cmake ninja-build g++ libboost-all-dev libeigen3-dev libtbb-dev python3-dev
-
-      - name: Validate self-hosted prerequisites
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.runner == 'self-hosted' }}
-        run: |
-          command -v cmake
-          command -v ctest
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: cmake-build-tree
-          path: ${{ env.BUILD_DIR }}
-
-      - name: Resolve downloaded build tree
-        run: |
-          if [ -d "${BUILD_DIR}/CMakeFiles" ]; then
-            echo "CTEST_DIR=${BUILD_DIR}" >> "$GITHUB_ENV"
-          elif [ -d "${BUILD_DIR}/${BUILD_DIR}/CMakeFiles" ]; then
-            echo "CTEST_DIR=${BUILD_DIR}/${BUILD_DIR}" >> "$GITHUB_ENV"
-          else
-            echo "Could not find CMakeFiles under '${BUILD_DIR}' after artifact download."
-            find "${BUILD_DIR}" -maxdepth 3 -type d | sort || true
-            exit 1
-          fi
-
-      - name: Restore test executable permissions
-        run: |
-          # GitHub artifact download may drop executable bits from binaries.
-          find "${CTEST_DIR}" -type f -path "*/tests/*" -exec chmod +x {} + || true
-
       - name: Test
-        run: ctest --test-dir "${CTEST_DIR}" --output-on-failure --parallel 2 --no-tests=error
+        run: ctest --test-dir "${BUILD_DIR}" --output-on-failure --parallel 2 --no-tests=error
+
+      - name: Install and package source
+        run: |
+          cmake --install "${BUILD_DIR}"
+          cmake --build "${BUILD_DIR}" --target package_source
+
+      - name: Show compiler-cache statistics
+        run: ccache --show-stats || true

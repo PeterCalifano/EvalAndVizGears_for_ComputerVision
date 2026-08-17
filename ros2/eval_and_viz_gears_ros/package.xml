@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>eval_and_viz_gears_ros</name>
+  <version>0.2.0</version>
+  <description>C++/CUDA computer-vision evaluation and visualization library with optional Python and MATLAB wrappers: ROS 2 bridge package.</description>
+  <maintainer email="petercalifano.gs@gmail.com">Pietro Califano</maintainer>
+  <license>MIT</license>
+  <url type="website">https://github.com/PeterCalifano/EvalAndVizGears_for_ComputerVision</url>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>eval_and_viz_gears</depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>libopencv-dev</depend>
+  <depend>slam_primitives_interfaces</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

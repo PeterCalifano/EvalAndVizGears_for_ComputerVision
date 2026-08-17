@@ -21,7 +21,6 @@ CDisplayWindow::~CDisplayWindow()
     close();
 }
 
-/// @copydoc viztools::CDisplayWindow::show
 auto CDisplayWindow::show(const cv::Mat &frame) -> EWindowAction
 {
     if (frame.empty())
@@ -51,7 +50,6 @@ auto CDisplayWindow::show(const cv::Mat &frame) -> EWindowAction
     return processKey(key);
 }
 
-/// @copydoc viztools::CDisplayWindow::runLoop
 void CDisplayWindow::runLoop(std::function<cv::Mat()> frame_provider)
 {
     while (true)
@@ -97,7 +95,6 @@ void CDisplayWindow::runLoop(std::function<cv::Mat()> frame_provider)
     close();
 }
 
-/// @copydoc viztools::CDisplayWindow::close
 void CDisplayWindow::close()
 {
     if (window_created_)

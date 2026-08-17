@@ -1,141 +1,84 @@
+# project-ci-template: generic
 name: build_cpplinux_cuda
-run-name: Build and test C++ library (CUDA)
+run-name: Build and test EvalAndVizGears_for_ComputerVision with CUDA
 
 on:
   workflow_dispatch:
     inputs:
-      enable_optix:
-        description: "Enable OptiX (requires SDK on runner)"
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
       enable_tbb:
-        description: "Enable oneTBB (requires TBB on runner)"
+        description: Enable oneTBB on the configured GPU runner
         required: true
         default: "false"
         type: choice
-        options:
-          - "false"
-          - "true"
+        options: ["false", "true"]
+  push:
+    tags: ["v*.*.*"]
 
 concurrency:
   group: cuda-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on:
-      - self-hosted
-      - Linux
-      - X64
-      - gpu
-      - cuda
+  cuda:
+    if: ${{ vars.CI_USE_SELF_HOSTED == 'true' }}
+    runs-on: [self-hosted, Linux, X64, gpu, cuda]
     timeout-minutes: 90
     env:
       BUILD_DIR: build_cuda_ci
-      BUILD_TYPE: RelWithDebInfo
-      CTEST_OUTPUT_ON_FAILURE: 1
-      ENABLE_OPTIX: ${{ github.event.inputs.enable_optix == 'true' && 'ON' || 'OFF' }}
       ENABLE_TBB: ${{ github.event.inputs.enable_tbb == 'true' && 'ON' || 'OFF' }}
+      CTEST_OUTPUT_ON_FAILURE: 1
+      SLAM_PRIMITIVES_REVISION: 05a9c72be25692c965cf688511ac45107bfd382f
+      SLAM_PRIMITIVES_ROOT: ${{ runner.temp }}/slam-primitives-${{ github.run_id }}-${{ github.run_attempt }}
+      SLAM_PRIMITIVES_INSTALL: ${{ runner.temp }}/slam-primitives-install-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-      - name: Validate CUDA prerequisites
+      - name: Validate CUDA runner
         run: |
           command -v cmake
           command -v ninja
           command -v g++
-          command -v ccache
           command -v nvcc
           command -v nvidia-smi
           command -v python3
+          python3 -m pytest --version
           nvidia-smi
           nvcc --version
 
-      - name: Restore compiler cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: ccache-cuda-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('CMakeLists.txt', 'cmake/**', 'src/**', 'tests/**', '.github/workflows/build_linux_cuda.yml') }}
-          restore-keys: |
-            ccache-cuda-${{ runner.os }}-${{ github.ref_name }}-
-            ccache-cuda-${{ runner.os }}-
-
       - name: Configure
         run: |
+          git clone https://github.com/PeterCalifano/slam-primitives.git \
+            "${SLAM_PRIMITIVES_ROOT}"
+          git -C "${SLAM_PRIMITIVES_ROOT}" checkout \
+            --detach "${SLAM_PRIMITIVES_REVISION}"
+          cmake -S "${SLAM_PRIMITIVES_ROOT}" \
+            -B "${SLAM_PRIMITIVES_ROOT}/build-ci" -GNinja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_INSTALL_PREFIX="${SLAM_PRIMITIVES_INSTALL}" \
+            -DENABLE_TESTS=OFF \
+            -Dslam-primitives_BUILD_PROGRAMS=OFF \
+            -Dslam-primitives_BUILD_EXAMPLES=OFF \
+            -DCPU_ENABLE_NATIVE_TUNING=OFF
+          cmake --build "${SLAM_PRIMITIVES_ROOT}/build-ci" \
+            --target install --parallel 4
           cmake -S . -B "${BUILD_DIR}" -GNinja \
-            -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_PREFIX_PATH="${SLAM_PRIMITIVES_INSTALL}" \
             -DENABLE_TESTS=ON \
+            -DENABLE_PYTHON_TESTS=ON \
             -DENABLE_CUDA=ON \
-            -DENABLE_OPTIX="${ENABLE_OPTIX}" \
             -DENABLE_TBB="${ENABLE_TBB}" \
             -DENABLE_OPENGL=OFF \
-            -DCPU_ENABLE_NATIVE_TUNING=ON \
+            -DCPU_ENABLE_NATIVE_TUNING=OFF \
             -DCUDA_ENABLE_FMAD=ON \
-            -DCUDA_ENABLE_EXTRA_DEVICE_VECTORIZATION=ON \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+            -DCUDA_ENABLE_EXTRA_DEVICE_VECTORIZATION=ON
 
       - name: Build
         run: cmake --build "${BUILD_DIR}" --parallel 4
 
-      - name: Show ccache stats
-        run: ccache --show-stats || true
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: cmake-build-tree-cuda
-          path: ${{ env.BUILD_DIR }}
-          if-no-files-found: error
-          retention-days: 3
-
-  test:
-    needs: build
-    runs-on:
-      - self-hosted
-      - Linux
-      - X64
-      - gpu
-      - cuda
-    timeout-minutes: 45
-    env:
-      BUILD_DIR: build_cuda_ci
-      CTEST_OUTPUT_ON_FAILURE: 1
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Validate test prerequisites
-        run: |
-          command -v ctest
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: cmake-build-tree-cuda
-          path: ${{ env.BUILD_DIR }}
-
-      - name: Resolve downloaded build tree
-        run: |
-          if [ -d "${BUILD_DIR}/CMakeFiles" ]; then
-            echo "CTEST_DIR=${BUILD_DIR}" >> "$GITHUB_ENV"
-          elif [ -d "${BUILD_DIR}/${BUILD_DIR}/CMakeFiles" ]; then
-            echo "CTEST_DIR=${BUILD_DIR}/${BUILD_DIR}" >> "$GITHUB_ENV"
-          else
-            echo "Could not find CMakeFiles under '${BUILD_DIR}' after artifact download."
-            find "${BUILD_DIR}" -maxdepth 3 -type d | sort || true
-            exit 1
-          fi
-
-      - name: Restore test executable permissions
-        run: |
-          # GitHub artifact download may drop executable bits from binaries.
-          find "${CTEST_DIR}" -type f -path "*/tests/*" -exec chmod +x {} + || true
-
       - name: Test
-        run: ctest --test-dir "${CTEST_DIR}" --output-on-failure --parallel 2 --no-tests=error
+        run: ctest --test-dir "${BUILD_DIR}" --output-on-failure --parallel 2 --no-tests=error

@@ -1,0 +1,95 @@
+name: build_ros2_overlay
+run-name: Build EvalAndVizGears ROS 2 overlay
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, main, develop, "dev*"]
+    tags: ["v*.*.*"]
+    paths:
+      - "CMakeLists.txt"
+      - "cmake/**"
+      - "src/**"
+      - "ros2/**"
+      - "build_ros2.sh"
+      - "generate_version.sh"
+      - ".github/workflows/build_ros2_overlay.yml"
+  pull_request:
+    branches: [master, main, develop, "dev*"]
+    paths:
+      - "CMakeLists.txt"
+      - "cmake/**"
+      - "src/**"
+      - "ros2/**"
+      - "build_ros2.sh"
+      - "generate_version.sh"
+      - ".github/workflows/build_ros2_overlay.yml"
+
+jobs:
+  overlay-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    container:
+      image: ros:jazzy
+    env:
+      SLAM_PRIMITIVES_REVISION: 05a9c72be25692c965cf688511ac45107bfd382f
+      SLAM_PRIMITIVES_ROOT: /tmp/slam-primitives
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Trust checked-out Git worktree
+        shell: bash
+        run: |
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git -C "${GITHUB_WORKSPACE}" rev-parse --is-inside-work-tree
+
+      - name: Install ROS 2 overlay dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            git \
+            libeigen3-dev \
+            libopencv-dev \
+            python3-colcon-common-extensions \
+            ros-dev-tools
+
+      - name: Build pinned slam-primitives overlay
+        shell: bash
+        run: |
+          git clone https://github.com/PeterCalifano/slam-primitives.git \
+            "${SLAM_PRIMITIVES_ROOT}"
+          git -C "${SLAM_PRIMITIVES_ROOT}" checkout \
+            --detach "${SLAM_PRIMITIVES_REVISION}"
+          "${SLAM_PRIMITIVES_ROOT}/build_ros2.sh" \
+            --clean --skip-tests --no-version-sync
+
+      - name: Resolve target ROS dependencies
+        shell: bash
+        run: |
+          set +u
+          source "${SLAM_PRIMITIVES_ROOT}/ros2/install/setup.bash"
+          set -u
+          rosdep update
+          rosdep install --from-paths ros2 -i -r -y --rosdistro jazzy
+
+      - name: Check synchronized package metadata
+        shell: bash
+        run: |
+          set +u
+          source "${SLAM_PRIMITIVES_ROOT}/ros2/install/setup.bash"
+          set -u
+          ./generate_version.sh --sync-ros2
+          git diff --exit-code -- ros2/*/package.xml
+
+      - name: Build target ROS 2 overlay
+        shell: bash
+        run: |
+          set +u
+          source "${SLAM_PRIMITIVES_ROOT}/ros2/install/setup.bash"
+          set -u
+          ./build_ros2.sh --clean --no-version-sync

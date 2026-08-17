@@ -6,13 +6,11 @@
 namespace viztools
 {
 
-/// @copydoc viztools::CTrackingStatsLogger::record
 void CTrackingStatsLogger::record(const SFrameStats &stats)
 {
     entries_.push_back(stats);
 }
 
-/// @copydoc viztools::CTrackingStatsLogger::writeCsv
 auto CTrackingStatsLogger::writeCsv(const std::string &path) const -> bool
 {
     std::ofstream ofs(path);

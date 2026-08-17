@@ -1,6 +1,12 @@
 /*build*/
 /*debug*/
 /*install*/
+/log/
+
+# ROS 2 colcon outputs when the optional overlay is built from ros2/.
+/ros2/build/
+/ros2/install/
+/ros2/log/
 
 callgrind.out*
 VERSION
@@ -18,11 +24,15 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
+/*.code-workspace
 
 *.asv
 *.png
 .idea
 *.pyc
+__pycache__/
+.pytest_cache/
+*.egg-info/
 *.DS_Store
 *.swp
 /examples/Data/dubrovnik-3-7-pre-rewritten.txt
@@ -40,8 +50,8 @@ lib/Catch2
 CMakeLists.txt.user*
 xcode/
 /Dockerfile
+/output_data/
 /python/gtsam/notebooks/.ipynb_checkpoints/ellipses-checkpoint.ipynb
 .vscode/browse.vc.db
 .vscode/browse.vc.db-shm
 .vscode/browse.vc.db-wal
-src/CMakeLists.txt

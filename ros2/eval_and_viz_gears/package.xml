@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>eval_and_viz_gears</name>
+  <version>0.2.0</version>
+  <description>C++/CUDA computer-vision evaluation and visualization library with optional Python and MATLAB wrappers: ROS 2 package.</description>
+  <maintainer email="petercalifano.gs@gmail.com">Pietro Califano</maintainer>
+  <license>MIT</license>
+  <url type="website">https://github.com/PeterCalifano/EvalAndVizGears_for_ComputerVision</url>
+
+  <buildtool_depend>cmake</buildtool_depend>
+
+  <depend>eigen</depend>
+  <depend>libopencv-dev</depend>
+  <depend>slam_primitives</depend>
+
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+</package>

@@ -1,0 +1,68 @@
+name: Bug report
+description: Report a reproducible rendering, analysis, build, wrapper, or packaging problem.
+title: "[BUG] "
+labels:
+  - major-bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: State the observed failure and expected behavior.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - 2D image or feature rendering
+        - 3D visualization
+        - Tracking statistics or analysis
+        - C++ library or CUDA build
+        - Python wrapper
+        - MATLAB wrapper
+        - ROS 2 integration
+        - Documentation or CI
+        - Packaging or installation
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction commands
+      description: Include exact commands and relevant input/configuration details.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output excerpt
+      description: Include the first relevant error and surrounding context.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Ubuntu 24.04, GCC 13, CMake 3.28, OpenCV 4.8, CUDA 12.9"
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Build and runtime configuration
+      description: Include CMake options, viewer/backend, image color order, and local or remote mode.
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I reproduced the issue from a clean build directory when applicable.
+        - label: I identified whether the failure is in the standalone library or an integration layer.
+        - label: I included image format and RGB/BGR ordering for rendering defects.

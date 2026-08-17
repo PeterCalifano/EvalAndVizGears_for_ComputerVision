@@ -14,7 +14,6 @@ namespace viztools
     {
     }
 
-    /// @copydoc viztools::CMatchVisualizer::draw
     auto CMatchVisualizer::draw(const cv::Mat &img1, const cv::Mat &img2,
                                 const std::vector<cv::Point2f> &pts1,
                                 const std::vector<cv::Point2f> &pts2,

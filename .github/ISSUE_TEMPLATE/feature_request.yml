@@ -1,0 +1,52 @@
+name: Feature request
+description: Propose a scoped visualization, analysis, integration, or tooling improvement.
+title: "[FEATURE] "
+labels:
+  - major-enhancement
+assignees:
+  - PeterCalifano
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or missing capability
+      description: Explain the limitation, affected workflow, and owning repository.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Owning surface
+      options:
+        - 2D rendering
+        - 3D visualization
+        - Online plots or analysis
+        - Standalone C++ library
+        - CUDA acceleration
+        - Python or MATLAB wrapper
+        - ROS 2 integration
+        - Documentation or CI
+        - Packaging or installation
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the intended behavior, API, ownership boundary, and data flow.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: List code-level tests, builds, simulations, benchmarks, or visual checks.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

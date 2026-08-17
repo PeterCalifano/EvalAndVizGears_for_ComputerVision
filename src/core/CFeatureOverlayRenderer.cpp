@@ -15,7 +15,6 @@ namespace viztools
     {
     }
 
-    /// @copydoc viztools::CFeatureOverlayRenderer::draw
     void CFeatureOverlayRenderer::draw(cv::Mat &image,
                                        const std::vector<cv::Point2f> &points,
                                        const std::vector<int> &ids,
@@ -65,7 +64,6 @@ namespace viztools
         }
     }
 
-    /// @copydoc viztools::CFeatureOverlayRenderer::colorFromAge
     auto CFeatureOverlayRenderer::colorFromAge(double normalized_age) -> cv::Scalar
     {
         double t = std::clamp(normalized_age, 0.0, 1.0);

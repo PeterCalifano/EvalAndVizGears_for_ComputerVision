@@ -1,370 +1,226 @@
 # EvalAndVizGears_for_ComputerVision
 
-This repository uses the current `cpp_cuda_template_project` build scaffold for a Pangolin-based C++ library with optional CUDA/OptiX and Python/MATLAB bindings.
+C++20 components for feature-track visualization, image annotation, match
+inspection, and tracking-statistics export. The library is the standalone
+rendering/evaluation base that will be consolidated with navigation plotting
+work before online middleware integration is added.
+
+## Current Capabilities
+
+- OpenCV feature markers with configurable shapes, colors, opacity, and IDs.
+- Track trails with bounded history and optional age fading.
+- Composite frame annotation with a tracking HUD and keyframe highlighting.
+- Side-by-side or stacked feature-match visualization.
+- Interactive OpenCV display windows with pause, step, and quit actions.
+- Per-frame tracking statistics with CSV export.
+- Dependency-free, thread-safe project logging through
+  `viztools::logging::CLogger`.
+- Optional CUDA compilation, Pangolin, OpenGL, oneTBB, Python wrappers, and
+  MATLAB wrappers.
+- Optional ROS 2 Jazzy colcon overlay and reproducible ROS-enabled devcontainer.
+
+The current library provides 2D visualization primitives. Three-dimensional
+state visualization, online error/covariance plots, and live navigation data
+interfaces remain in the staged development plan under
+`doc/developments/ros2_online_visualization_plan.md`.
+
+## Documentation Map
+
+- [`doc/build_script_doc.md`](doc/build_script_doc.md): build helper and feature options.
+- [`doc/wrappers.md`](doc/wrappers.md): Python/MATLAB wrapper configuration and ownership.
+- [`doc/versioning.md`](doc/versioning.md): semantic version and source-release metadata.
+- [`doc/logging.md`](doc/logging.md): dependency-free diagnostics.
+- [`doc/documentation_workflow.md`](doc/documentation_workflow.md): Doxygen and Pages flow.
+- [`doc/testing_and_ci.md`](doc/testing_and_ci.md): target-owned test and CI boundaries.
+- [`doc/ros2_overlay.md`](doc/ros2_overlay.md): ROS 2 and container build workflow.
 
 ## Requirements
 
-| Dependency | Version | Notes |
-|---|---|---|
-| CMake | ≥ 3.15 | |
-| C++ compiler | C++20 | GCC 11+, Clang 13+ |
-| Eigen3 | ≥ 3.4 | Required |
-| Pangolin | any | Required |
-| CUDA Toolkit | ≥ 12.0 | Optional (`-DENABLE_CUDA=ON`) |
-| OptiX SDK | any | Optional (`-DENABLE_OPTIX=ON`), requires CUDA |
-| oneTBB | any | Optional (`-DENABLE_TBB=ON`) |
-| Catch2 | 3.x | Auto-fetched from GitHub if not found |
-| pyparsing | latest | Required for gtwrap Python/MATLAB code generation |
+| Dependency | Requirement | Purpose |
+|---|---:|---|
+| CMake | 3.15 or newer | Configure and package |
+| C++ compiler | C++20 | Library and tests |
+| Eigen3 | 3.4 or newer | Public math dependency |
+| OpenCV | core, imgproc, highgui, imgcodecs | Rendering and display |
+| slam-primitives | snapshot API revision | Public feature-track snapshot types |
+| Catch2 | 3.x | C++ tests; optional when tests are disabled |
+| Python | 3.12 by default | Python tests and wrapper tooling |
+| CUDA Toolkit | 12.0 or newer | Optional CUDA builds |
+| Pangolin | optional | Future 3D plotting backend |
 
----
+## Build And Test
 
-## Quick Start
+Install `slam-primitives` revision
+`05a9c72be25692c965cf688511ac45107bfd382f` first and make its CMake package
+discoverable:
 
 ```bash
-git clone <repo-url> my_project && cd my_project
+cmake -S /path/to/slam-primitives -B /tmp/slam-primitives-build \
+  -DCMAKE_INSTALL_PREFIX=/tmp/slam-primitives-install \
+  -DENABLE_TESTS=OFF \
+  -Dslam-primitives_BUILD_PROGRAMS=OFF \
+  -Dslam-primitives_BUILD_EXAMPLES=OFF
+cmake --build /tmp/slam-primitives-build --target install --parallel 4
 
-# Default build (RelWithDebInfo) + run tests
+export CMAKE_PREFIX_PATH=/tmp/slam-primitives-install${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
+```
+
+The default command configures a `RelWithDebInfo` build and runs CTest:
+
+```bash
 ./build_lib.sh
-
-# Debug build, Ninja generator, 8 jobs
-./build_lib.sh -t debug -N -j 8
-
-# Build + install to ./install
-./build_lib.sh -t release -i
 ```
 
-Optimized builds (`Release`, `RelWithDebInfo`) enable `-march=native -mtune=native` by default.
-Disable this for portable binaries with `-D CPU_ENABLE_NATIVE_TUNING=OFF`.
-
-Run tests manually after a build:
+Common variants:
 
 ```bash
-cd build && ctest --output-on-failure
-# Run a single test by name
-ctest --output-on-failure -R <test_name>
+# Clean debug build with Ninja.
+./build_lib.sh --clean -t debug -N
+
+# Portable release build and install into ./install.
+./build_lib.sh --clean -t release -i \
+  -D CPU_ENABLE_NATIVE_TUNING=OFF
+
+# CUDA build.
+./build_lib.sh --clean -D ENABLE_CUDA=ON
+
+# Run one test group after configuring.
+ctest --test-dir build --output-on-failure -R logger
 ```
 
----
+Optimized native builds enable `-march=native -mtune=native` by default.
+Disable `CPU_ENABLE_NATIVE_TUNING` for distributable binaries or when cross
+compiling.
 
-## Using as a Template
-
-To start a new project from this template, rename the following (all in one pass with your editor's global find-and-replace):
-
-| Placeholder | Replace with |
-|---|---|
-| `EvalAndVizGears_for_ComputerVision` | your project name (snake_case) |
-| `template_src` | your library module name |
-| `template_src_kernels` | your CUDA module name (or delete if no CUDA) |
-
-**Files/directories to rename:**
-
-```
-src/template_src/            --> src/<your_lib>/
-src/template_src_kernels/    --> src/<your_lib>_kernels/    (if using CUDA)
-src/cmake/EvalAndVizGears_for_ComputerVisionConfig.cmake.in  --> src/cmake/<your_project>Config.cmake.in
-```
-
-**CMakeLists.txt** (root, line 11):
-
-```cmake
-set(project_name "your_project_name")
-```
-
-**What to keep as-is:** the entire `cmake/` module system, `build_lib.sh`, `configure_devcontainer.sh`, and `generate_version.sh` are project-agnostic.
-
----
+`NO_OPTIMIZATION=ON` uses `-O0 -g3`, keeps assertions enabled, preserves frame
+pointers, and disables inlining/tail-call optimization for profiler-friendly
+debugging.
 
 ## Build Options
 
-All options are passed via `build_lib.sh` flags or directly as `-D<VAR>=<VAL>` to CMake.
+| CMake option | Default | Meaning |
+|---|---:|---|
+| `ENABLE_TESTS` | `ON` | Register target-owned C++ runtime tests and optional Python tests |
+| `ENABLE_PYTHON_TESTS` | `ON` | Register `test*.py` through CTest |
+| `ENABLE_CUDA` | `OFF` | Enable the CUDA language and toolkit interface |
+| `ENABLE_PANGOLIN` | `OFF` | Enable the Pangolin dependency |
+| `ENABLE_OPENGL` | `OFF` | Enable the OpenGL interface |
+| `ENABLE_TBB` | `OFF` | Enable oneTBB |
+| `ENABLE_PROFILING` | `OFF` | Add profiler-friendly flags and annotations |
+| `ENABLE_GPERFTOOLS` | profiling setting | Link the CPU profiler |
+| `ENABLE_TCMALLOC` | `OFF` | Link allocator replacement explicitly |
+| `SANITIZE_BUILD` | `OFF` | Enable configured sanitizers |
+| `NO_OPTIMIZATION` | `OFF` | Force profiler-friendly non-optimized flags |
+| `WRITE_SOURCE_VERSION_FILE` | `OFF` | Permit configure to update source `VERSION` |
+| `EvalAndVizGears_for_ComputerVision_ENABLE_CUDA` | `OFF` | Canonical CUDA option for nested builds |
+| `EvalAndVizGears_for_ComputerVision_BUILD_PROGRAMS` | `ON` | Build in-tree programs |
+| `EvalAndVizGears_for_ComputerVision_BUILD_EXAMPLES` | `ON` | Build examples |
 
-### `build_lib.sh` reference
+Run `./build_lib.sh --help` for script options, including Python-test conda
+selection and additional CTest arguments.
 
+## Logging
+
+`CLogger` is always built and has no external logging dependency:
+
+```cpp
+#include <utils/logging/CLogger.h>
+
+viztools::logging::CLogger logger(
+    "tracker", viztools::logging::ELogLevel::Info);
+logger.setLevelFromEnvironment();
+logger.info("active tracks: ", active_tracks);
 ```
--B, --buildpath <dir>     Build directory (default: ./build)
--t, --type <type>         debug | release | relwithdebinfo | minsizerel
--j, --jobs <N>            Parallel jobs (default: nproc or 4)
--r, --rebuild-only        Skip CMake configure; rebuild sources only
--N, --ninja-build         Use Ninja generator
--f, --flagsCXX "<flags>"  Extra compiler flags (e.g. "-march=native")
--D, --define <VAR=VAL>    Extra CMake cache definitions (repeatable)
-    --clean               Delete build dir before configure
-    --profile             Enable profiling build
-    --skip-tests          Do not run tests after build
--i, --install             Run install target after tests
--p, --python-wrap         Enable Python wrappers
--m, --matlab-wrap         Enable MATLAB wrappers
-    --gtwrap-root <dir>   Path to local wrap checkout root
-    --no-wrap-update      Disable auto-update of local wrap checkout to latest master
-    --toolchain <file>    CMake toolchain file
--h, --help                Show full help
+
+Set `EVAL_AND_VIZ_LOG_LEVEL` to `quiet`, `critical`, `error`, `warning`,
+`info`, `debug`, `trace`, or the numeric values `0` through `6`. ANSI colors
+are disabled unless explicitly selected by the caller.
+
+## Package Consumption
+
+Install the project and consume the exported CMake package:
+
+```cmake
+find_package(EvalAndVizGears_for_ComputerVision CONFIG REQUIRED)
+
+target_link_libraries(my_target PRIVATE
+  EvalAndVizGears_for_ComputerVision::EvalAndVizGears_for_ComputerVision)
 ```
 
-See [`doc/build_script_doc.md`](doc/build_script_doc.md) for a detailed option reference.
+Public headers are installed below
+`include/EvalAndVizGears_for_ComputerVision`. The same package target is
+available from a configured build tree by setting
+`EvalAndVizGears_for_ComputerVision_DIR` to the build directory.
 
-### CMake feature flags
+## Python And MATLAB Wrappers
 
-| Option | Default | Description |
-|---|---|---|
-| `ENABLE_CUDA` | OFF | CUDA GPU acceleration |
-| `ENABLE_OPTIX` | OFF | NVIDIA OptiX (enables CUDA automatically) |
-| `ENABLE_TBB` | OFF | Intel oneTBB support (`find_package(TBB)`) |
-| `ENABLE_OPENGL` | OFF | OpenGL support |
-| `ENABLE_TESTS` | ON | Build and run Catch2 tests |
-| `ENABLE_PROFILING` | OFF | Profiling-friendly flags and optional gperftools/Valgrind detection |
-| `SANITIZE_BUILD` | OFF | Enable sanitizers (see `SANITIZERS` variable) |
-| `SANITIZERS` | `address,undefined,leak` | Comma-separated sanitizer list |
-| `CPU_ENABLE_NATIVE_TUNING` | ON | Adds `-march=native -mtune=native` for GNU/Clang optimized builds |
-| `CPU_ENABLE_SIMD` | OFF | Adds explicit SIMD ISA flag from `CPU_SIMD_LEVEL` |
-| `CPU_SIMD_LEVEL` | `native` | SIMD target: `native`, `sse4.2`, `avx`, `avx2`, `avx512f` |
-| `CPU_ENABLE_FMA` | OFF | Adds `-mfma` for GNU/Clang optimized builds |
-| `CPU_EXTRA_OPT_FLAGS` | `""` | Extra CPU optimization flags for optimized builds |
-| `CUDA_ENABLE_FMAD` | ON | NVCC fused multiply-add control (`--fmad=true/false`) |
-| `CUDA_ENABLE_EXTRA_DEVICE_VECTORIZATION` | OFF | Adds NVCC `--extra-device-vectorization` |
-| `CUDA_USE_FAST_MATH` | OFF | Adds NVCC `--use_fast_math` to regular CUDA builds |
-| `CUDA_PTX_USE_FAST_MATH` | ON | Adds NVCC `--use_fast_math` to PTX generation path |
-| `CUDA_NVCC_EXTRA_FLAGS` | `""` | Extra NVCC flags for CUDA and PTX compilation |
-| `NO_OPTIMIZATION` | OFF | Force `-O0` regardless of build type |
-| `WARNINGS_ARE_ERRORS` | OFF | Treat all warnings as errors (`-Werror`) |
-
-### Build type compiler flags
-
-| Build type | Flags | Notes |
-|---|---|---|
-| `Debug` | `-Og -g` + sanitizers | Max debug info |
-| `RelWithDebInfo` | `-O2 -g` + stricter warnings | **Default** |
-| `Release` | `-O3` | Tests forced on |
-| `MinSizeRel` | `-Os` | |
-| `NOPTIM` | `-O0 -g` | Stricter warnings, no optimization |
-
----
-
-## Optional Features
-
-### CUDA / OptiX
+Wrapper support uses `gtwrap` from an installed package or a local checkout:
 
 ```bash
-./build_lib.sh -D ENABLE_CUDA=ON
-./build_lib.sh -D ENABLE_CUDA=ON -D ENABLE_OPTIX=ON
-```
-
-GPU architecture is auto-detected via `nvidia-smi`. CUDA kernels live in `src/template_src_kernels/`:
-
-- `.cu` files - standard CUDA kernels
-- `.ptx.cu` files - compiled to embedded `const char[]` arrays for OptiX modules
-
-Example with explicit CUDA optimization toggles:
-
-```bash
-./build_lib.sh -D ENABLE_CUDA=ON \
-  -D CUDA_ENABLE_FMAD=ON \
-  -D CUDA_ENABLE_EXTRA_DEVICE_VECTORIZATION=ON \
-  -D CUDA_NVCC_EXTRA_FLAGS="--maxrregcount=128"
-```
-
-### TBB
-
-```bash
-./build_lib.sh -D ENABLE_TBB=ON
-```
-
-### CPU vectorization tuning
-
-`CPU_ENABLE_NATIVE_TUNING` is ON by default for optimized builds.
-
-```bash
-# Disable native tuning for portable binaries
-./build_lib.sh -D CPU_ENABLE_NATIVE_TUNING=OFF
-
-# Enable explicit AVX2 + FMA flags
-./build_lib.sh -D CPU_ENABLE_SIMD=ON -D CPU_SIMD_LEVEL=avx2 -D CPU_ENABLE_FMA=ON
-```
-
-### Sanitizers
-
-```bash
-./build_lib.sh -t debug -D SANITIZE_BUILD=ON
-# Custom sanitizer set:
-./build_lib.sh -t debug -D SANITIZE_BUILD=ON -D SANITIZERS="address,undefined"
-```
-
-### Profiling-friendly build
-
-```bash
-./build_lib.sh --profile -t relwithdebinfo
-```
-
-`--profile` enables `ENABLE_PROFILING=ON`, which adds frame-pointer and no-inline
-flags for better profiler call stacks and exposes Valgrind client annotations when
-headers are available. If `gperftools` is installed, it is linked automatically.
-
----
-
-## Python and MATLAB Wrappers (gtwrap)
-
-This template supports wrappers via `gtwrap` in two modes:
-
-1. Installed package mode (`find_package(gtwrap)`).
-2. Local checkout mode (`--gtwrap-root /path/to/wrap` or `-D<project>_GTWRAP_ROOT_DIR=...`).
-
-When `-p` and/or `-m` is used, `build_lib.sh` auto-detects local wrap roots
-(`./wrap`, `./lib/wrap`, `../wrap`) and updates them to latest `origin/master`
-by default. This includes detached/tag states by switching/creating local
-`master` from `origin/master`.
-
-### Prerequisites
-
-Install `pyparsing` in the same Python environment used for wrapping:
-
-```bash
-python3 -m pip install pyparsing
-```
-
-`pybind11` is provided by `gtwrap` (installed package or local checkout).
-
-### Build examples
-
-```bash
-# Python wrapper only
 ./build_lib.sh -p
-
-# Python + MATLAB wrappers
-./build_lib.sh -p -m
-
-# Force local wrap checkout
-./build_lib.sh -p --gtwrap-root /path/to/wrap
+./build_lib.sh -p -m --gtwrap-root /path/to/wrap
 ```
 
-`-p` enables namespaced CMake wrapper options and ensures `<project>_py` is built.
+The project-specific wrapper interface is `src/wrap_interface.i`. Generated
+Python packaging uses `python/pyproject.toml.in` and `python/setup.py.in`.
+MATLAB wrapper discovery targets R2024b. Generated Python and MATLAB outputs
+remain under the build tree and install prefix.
 
-### Generated sources
+## ROS 2 And Containers
 
-If your wrapper interface uses `gtsam::Vector`/`gtsam::Matrix` without a full GTSAM dependency, include `src/utils/wrap_adapters/GtsamAliases.h` in `src/wrap_interface.i` to alias them to Eigen types.
-
-
-Wrapper generators produce different C++ files by design:
-
-1. Python (pybind): `<build>/wrap_interface.cpp` (from top-level `wrap_interface.i`).
-2. MATLAB: `<build>/wrap/<project>/<project>_wrapper.cpp`.
-
-### Python package install workflow
-
-Python packaging is `pyproject.toml`-based only (`python/pyproject.toml.in`).
-The old automated `python-install` CMake target was removed.
-
-Install manually from the generated Python package directory:
+The ROS 2 Jazzy overlay is optional and does not affect the standalone build.
+After sourcing the pinned `slam-primitives` ROS install:
 
 ```bash
-cd build/python
-python -m pip install .
+./build_ros2.sh --clean
 ```
 
-When using Conda, activate the target environment first, then run the same command.
+The overlay contains the `eval_and_viz_gears` colcon shim and the existing
+`eval_and_viz_gears_ros` recorder bridge. It intentionally imports no donor
+example messages, lifecycle nodes, spinup package, or ROS tests.
 
----
+The checked-in devcontainer uses ROS 2 Jazzy. Regenerate another supported
+variant or run a one-shot container command with:
 
-## Versioning
+```bash
+./configure_devcontainer.sh --ros2 --no-cuda --base ubuntu-24.04
+./run_in_container.sh --ros2 --build -- ./build_ros2.sh --clean
+./run_in_container.sh --matlab-root /path/to/MATLAB/R2024b -- bash
+```
 
-Version is resolved in order:
+## Versioning And Releases
 
-1. **Git tags** - tag format `vMAJOR.MINOR.PATCH` (e.g. `v1.2.0`)
-2. **`VERSION` file** - parsed from `Project version: X.Y.Z` if git is unavailable
-3. **CMake defaults** - `0.0.0` if neither source is available
-
-The `VERSION` file is always written to the source and build directories during CMake configure. To write it without building:
+Version resolution follows Git tags, then an existing `VERSION` file, then the
+hardcoded CMake fallback. Tags may carry semantic prerelease and build metadata.
 
 ```bash
 ./generate_version.sh
+cmake --build build --target package_source
 ```
 
-Version is available in C++ via the generated `config.h`:
-
-```cpp
-#include "config.h"
-PrintVersion();          // prints to stdout
-GetVersionString();      // returns std::string
-PROJECT_VERSION_MAJOR    // integer macros
-```
-
----
-
-## Installation and Consuming as a Library
-
-Install to the default prefix (`./install`) or a custom one:
-
-```bash
-./build_lib.sh -t release -i
-# or with custom prefix:
-./build_lib.sh -t release -i -D CMAKE_INSTALL_PREFIX=/opt/my_project
-```
-
-In a downstream CMake project:
-
-```cmake
-# Option 1: set the path explicitly
-set(my_project_DIR "/path/to/install/lib/cmake/my_project")
-find_package(my_project REQUIRED)
-
-# Option 2: via CMAKE_PREFIX_PATH
-cmake -DCMAKE_PREFIX_PATH=/path/to/install ...
-```
-
-Then link:
-
-```cmake
-target_link_libraries(my_target PRIVATE my_project::my_project)
-```
-
-See [`examples/template_consumer_project/`](examples/template_consumer_project/) for a complete working example.
-
----
-
-## DevContainer
-
-The project ships a VS Code DevContainer configuration. To reconfigure it (base image, ROS, CUDA):
-
-```bash
-# Interactive
-./configure_devcontainer.sh
-
-# Non-interactive
-./configure_devcontainer.sh --cuda --base ubuntu-22.04 --ros2 humble
-./configure_devcontainer.sh --base ubuntu-22.04 --ros noetic --ros-profile desktop
-./configure_devcontainer.sh --non-interactive --base ubuntu-24.04
-```
-
-ROS 1 requires Ubuntu 18.04 (melodic) or 20.04 (noetic). ROS 2 requires Ubuntu 22.04+.
-
----
+Ordinary CMake configure writes `VERSION` only to the build tree. Source-tree
+generation is explicit through `generate_version.sh` or
+`WRITE_SOURCE_VERSION_FILE=ON`.
 
 ## Documentation
 
-Doxygen documentation is auto-built when CMake finds `doxygen`:
+When Doxygen is available, configure and build the `doc` target:
 
 ```bash
-cmake -B build && cmake --build build --target doc
+cmake -S . -B build_docs \
+  -DENABLE_TESTS=OFF \
+  -DEvalAndVizGears_for_ComputerVision_BUILD_PROGRAMS=OFF \
+  -DEvalAndVizGears_for_ComputerVision_BUILD_EXAMPLES=OFF
+cmake --build build_docs --target doc
 ```
 
-Output goes to `build/doc/html/index.html`.
+Development plans under `doc/developments/` are intentionally excluded from
+published API documentation.
 
----
+## Development Status
 
-## Project Structure
-
-```
-├── src/
-│   ├── template_src/            Core C++ library implementation
-│   ├── template_src_kernels/    CUDA kernels (.cu) and PTX sources (.ptx.cu)
-│   ├── wrapped_impl/            C wrapper layer for Python/MATLAB bindings
-│   ├── config.h.in              CMake-configured header (version, feature flags)
-│   └── global_includes.h        Shared utilities (ANSI colors, precision constants)
-├── cmake/                       CMake module system (Handle*.cmake)
-├── tests/                       Catch2 unit tests and fixtures
-├── examples/
-│   ├── template_consumer_project/   Using the library via find_package()
-│   └── template_examples/           Standalone usage examples
-├── doc/                         Doxygen configuration
-├── build_lib.sh                 Primary build entry point
-├── generate_version.sh          Write VERSION file without building
-└── configure_devcontainer.sh    Reconfigure VS Code DevContainer
-```
+The build, wrapper, package, ROS overlay, and container infrastructure is
+aligned semantically with signed `cpp_cuda_template_project` v2.0.1 and tailored
+to this repository's identity and feature policy. CI and container builds pin
+the reviewed `slam-primitives` snapshot. Broader online visualization work
+continues through the staged development plan.

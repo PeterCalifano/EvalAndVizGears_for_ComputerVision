@@ -21,7 +21,7 @@
 
 #include <core/CFeatureTrackSnapshotAdapter.h>
 #include <core/CFrameAnnotator.h>
-#include <slam_primitives/feature_sets/SFeatureTrackSnapshot.h>
+#include <slam-primitives/feature_sets/SFeatureTrackSnapshot.h>
 
 namespace eval_and_viz_gears_ros
 {

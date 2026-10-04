@@ -62,11 +62,9 @@ public:
         {
             throw std::invalid_argument("expected bundle sizes must be positive");
         }
-        if (expected_track_id < 0 ||
-            expected_track_id >
-                static_cast<int64_t>(std::numeric_limits<uint32_t>::max()))
+        if (expected_track_id < 0)
         {
-            throw std::invalid_argument("expected_track_id must fit uint32");
+            throw std::invalid_argument("expected_track_id must be nonnegative");
         }
 
         processor_ = std::make_unique<CBenchmarkBundleProcessor>(SRecorderConfig{
@@ -75,7 +73,7 @@ public:
             .expected_path_length = static_cast<std::size_t>(expected_path_length),
             .expected_track_observations =
                 static_cast<std::size_t>(expected_track_observations),
-            .expected_track_id = static_cast<uint32_t>(expected_track_id),
+            .expected_track_id = static_cast<uint64_t>(expected_track_id),
         });
 
         const auto qos = rclcpp::QoS(rclcpp::KeepLast(1U)).reliable();

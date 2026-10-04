@@ -1,4 +1,9 @@
+/// @file CFrameAnnotator.h
+/// @brief Combines feature overlays, track trails and frame diagnostics.
+
 #pragma once
+
+#include <cstdint>
 #include "CFeatureOverlayRenderer.h"
 #include "CTrackTrailRenderer.h"
 
@@ -13,8 +18,8 @@ namespace viztools
     /// @brief Per-frame annotation data passed to CFrameAnnotator.
     struct SFrameAnnotation
     {
-        /// @brief Current frame index / identifier.
-        int frame_id{0};
+        /// @brief Current unsigned 32-bit frame identifier, including its maximum value.
+        std::uint32_t frame_id{0};
 
         /// @brief Feature locations in pixel coordinates.
         std::vector<cv::Point2f> feature_points;

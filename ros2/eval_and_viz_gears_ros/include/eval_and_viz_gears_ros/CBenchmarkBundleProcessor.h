@@ -32,7 +32,8 @@ struct SRecorderConfig
     std::string topic_root{"/nav_viz/benchmark"};
     std::size_t expected_path_length{200U};
     std::size_t expected_track_observations{3U};
-    uint32_t expected_track_id{17U};
+    /// @brief Exact unsigned 64-bit track identity expected in the bundle.
+    uint64_t expected_track_id{17U};
 };
 
 /// @brief Callback totals recorded when a synchronized bundle is finalized.

@@ -7,7 +7,7 @@
 
 #include <opencv2/core.hpp>
 
-#include <slam-primitives/feature_sets/SFeatureTrackSnapshot.h>
+#include <slam-primitives/feature_sets/feature_track_snapshot.h>
 
 namespace viztools
 {

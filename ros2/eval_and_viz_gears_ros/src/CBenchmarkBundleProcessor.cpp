@@ -21,7 +21,7 @@
 
 #include <core/CFeatureTrackSnapshotAdapter.h>
 #include <core/CFrameAnnotator.h>
-#include <slam-primitives/feature_sets/SFeatureTrackSnapshot.h>
+#include <slam-primitives/feature_sets/feature_track_snapshot.h>
 
 namespace eval_and_viz_gears_ros
 {
@@ -129,14 +129,15 @@ auto makeImage(const sensor_msgs::msg::Image& message) -> cv::Mat
 auto makeSnapshot(const slam_primitives_interfaces::msg::FeatureTrack2D& message)
     -> slam_primitives::SFeatureTrackSnapshot
 {
-    slam_primitives::SFeatureTrackSnapshot snapshot;
-    snapshot.track_id = message.track_id;
-    snapshot.is_terminated = message.is_terminated;
+    slam_primitives::SFeatureTrackSnapshot snapshot{
+        .track_id = slam_primitives::CFeatureTrackID{message.track_id},
+        .is_terminated = message.is_terminated,
+    };
     snapshot.observations.reserve(message.observations.size());
     for (const auto& observation : message.observations)
     {
         snapshot.observations.push_back({
-            .frame_id = observation.frame_id,
+            .frame_id = slam_primitives::CFrameID{observation.frame_id},
             .location = {
                 .u = observation.u,
                 .v = observation.v,
@@ -152,7 +153,7 @@ auto renderAnnotatedImage(const SBenchmarkBundle& bundle) -> cv::Mat
     const auto snapshot = makeSnapshot(bundle.tracks.tracks.front());
 
     viztools::SFrameAnnotation annotation;
-    annotation.frame_id = snapshot.observations.back().frame_id;
+    annotation.frame_id = snapshot.observations.back().frame_id.value();
     annotation.feature_points.reserve(snapshot.observations.size());
     for (const auto& observation : snapshot.observations)
     {
@@ -161,7 +162,7 @@ auto renderAnnotatedImage(const SBenchmarkBundle& bundle) -> cv::Mat
     }
     annotation.trails.push_back(
         viztools::CFeatureTrackSnapshotAdapter::toNewestFirstTrail(snapshot));
-    annotation.extra_info.push_back("Track: " + std::to_string(snapshot.track_id));
+    annotation.extra_info.push_back("Track: " + std::to_string(snapshot.track_id.value()));
 
     viztools::SOverlayConfig overlay_config;
     overlay_config.marker_radius = 5;
@@ -360,7 +361,7 @@ auto makeReceipt(const SRecorderConfig& config,
                  double callback_to_artifact_milliseconds) -> std::string
 {
     const bool has_track = bundle.tracks.tracks.size() == 1U;
-    const uint32_t track_id = has_track ? bundle.tracks.tracks.front().track_id : 0U;
+    const uint64_t track_id = has_track ? bundle.tracks.tracks.front().track_id : 0U;
     const std::size_t observation_count =
         has_track ? bundle.tracks.tracks.front().observations.size() : 0U;
 

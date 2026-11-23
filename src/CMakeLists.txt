@@ -108,11 +108,6 @@ target_link_libraries(${lib_name} ${lib_link_scope}
 
 target_link_libraries(${lib_name} PUBLIC slam-primitives::slam-primitives)
 
-if(ENABLE_PANGOLIN AND Pangolin_FOUND)
-  target_link_libraries(${lib_name} ${lib_link_scope} Pangolin)
-  target_compile_definitions(${lib_name} ${lib_link_scope} VIZTOOLS_HAS_PANGOLIN=1)
-endif()
-
 # Add target to installable list
 set(installable_targets ${installable_targets}
                         ${lib_name}

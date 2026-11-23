@@ -15,7 +15,7 @@ work before online middleware integration is added.
 - Per-frame tracking statistics with CSV export.
 - Dependency-free, thread-safe project logging through
   `viztools::logging::CLogger`.
-- Optional CUDA compilation, Pangolin, OpenGL, oneTBB, Python wrappers, and
+- Optional CUDA compilation, OpenGL, oneTBB, Python wrappers, and
   MATLAB wrappers.
 - Optional ROS 2 Jazzy colcon overlay and reproducible ROS-enabled devcontainer.
 
@@ -46,7 +46,6 @@ interfaces remain in the staged development plan under
 | Catch2 | 3.x | C++ tests; optional when tests are disabled |
 | Python | 3.12 by default | Python tests and wrapper tooling |
 | CUDA Toolkit | 12.0 or newer | Optional CUDA builds |
-| Pangolin | optional | Future 3D plotting backend |
 
 ## Build And Test
 
@@ -103,7 +102,6 @@ debugging.
 | `ENABLE_TESTS` | `ON` | Register target-owned C++ runtime tests and optional Python tests |
 | `ENABLE_PYTHON_TESTS` | `ON` | Register `test*.py` through CTest |
 | `ENABLE_CUDA` | `OFF` | Enable the CUDA language and toolkit interface |
-| `ENABLE_PANGOLIN` | `OFF` | Enable the Pangolin dependency |
 | `ENABLE_OPENGL` | `OFF` | Enable the OpenGL interface |
 | `ENABLE_TBB` | `OFF` | Enable oneTBB |
 | `ENABLE_PROFILING` | `OFF` | Add profiler-friendly flags and annotations |

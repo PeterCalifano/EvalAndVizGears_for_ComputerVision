@@ -31,7 +31,7 @@
 - Donor working-tree note: the donor checkout was clean on `main` at the `v1.11.3` tag during the incremental review. Only committed tagged content was considered.
 - Donor ownership rule: do not edit `cpp_cuda_template_project` during target alignment. Its package names, release version, template-only plans, optional four-package overlay shape, and retained OptiX support are donor-owned details, not derived-project defaults.
 - Derived-project rule: apply v2.0.1 as a three-way semantic port. Preserve this
-  repository's project identity, `viztools` API, OpenCV/Pangolin behavior,
+  repository's project identity, `viztools` API, OpenCV behavior,
   target-owned tests and recorder, and intentional feature removals.
 - Current-pass ordering: keep root CMake independent from ROS while adding the
   explicitly approved colcon shim, build-only ROS workflow, and ROS-enabled
@@ -42,6 +42,9 @@
   - remove OptiX support and all advertised OptiX options;
   - remove ZeroMQ support rather than retaining a fallback transport;
   - remove the external spdlog dependency and legacy adapter;
+  - keep Pangolin absent; its optional CMake discovery, linkage, compile
+    definition and package export were removed, and the legacy prototype
+    remains only as preserved history;
   - adapt the dependency-free `CLogger` from `v1.11.1` into `viztools::logging`;
   - keep the standalone non-ROS build as the Stage 2 acceptance baseline.
 
@@ -350,7 +353,7 @@ Relevant template observations:
 | CUDA/PTX source classification and compile graph fixes | Adapt | Keep reusable CUDA behavior, remove OptiX-only branches, and test at least configure/source classification when CUDA hardware or toolkit is unavailable. |
 | OptiX handler, options, workflows, tests, and docs | Skip/remove | Remove all target support and add absence guards. Do not retain disabled facade options. |
 | ZeroMQ support | Skip/remove | Remove untracked `cmake/HandleZeroMQ.cmake`; do not add options, packages, or fallback transport documentation. |
-| Python-test, wrapper, compiler-flag, and target-option improvements predating the ROS overlay | Adapt | Port only behavior compatible with the target package/API; retain target wrapper names and OpenCV/Pangolin build contracts. |
+| Python-test, wrapper, compiler-flag, and target-option improvements predating the ROS overlay | Adapt | Port only behavior compatible with the target package/API; retain target wrapper names and OpenCV build contracts, and keep Pangolin absent. |
 | Generic workflow templates (`*.yml.tpl`) and self-hosted CUDA guard | Adapt/optional | Materialize only workflows the target owns, preserve target runner policy, and never copy active donor template-validation workflows as project CI. |
 | Pull-request template and generic documentation workflow improvements | Adopt/optional | Apply only after target policy review; exclude donor identity and internal campaign material. |
 | `tailor_template_cleanup.sh`, template development plans/reports, template static tests | Source-only | Use as review evidence or scratch tooling only; do not import into the target. |
@@ -362,7 +365,7 @@ Implication:
 - The template update must be an explicit stage with a pinned source commit, per-file diff review, and tests.
 - Do not update template files in the same stage as ROS 2 visualization implementation.
 - Run the donor tailoring script only in a temporary scratch copy. It is a comparison and test oracle, not an overwrite mechanism.
-- Import template functionality in dependency order. Do not copy the template root wholesale because this target has project-specific OpenCV, Pangolin, source, tests, wrappers, and install/export differences.
+- Import template functionality in dependency order. Do not copy the template root wholesale because this target has project-specific OpenCV, source, tests, wrappers, and install/export differences.
 - Treat the target's absence of OptiX and ZeroMQ, and removal of spdlog, as post-update invariants with executable checks.
 - If template changes conflict with target local modifications, stop and report the conflicting file list before applying.
 
@@ -1735,7 +1738,7 @@ Tasks:
   - [ ] CMake project and package identity `EvalAndVizGears_for_ComputerVision`;
   - [ ] public C++ namespace `viztools`;
   - [ ] OpenCV rendering and image color-order contracts;
-  - [ ] optional Pangolin behavior;
+  - [ ] Pangolin absent;
   - [ ] CUDA retained independently from OptiX;
   - [ ] OptiX absent;
   - [ ] ZeroMQ absent;
@@ -1948,7 +1951,7 @@ Tasks:
   - [ ] `src/utils/logging`;
   - [ ] `src/utils/wrap_adapters`;
   - [ ] any current project-specific nested public header directory.
-- [ ] Align build-tree and install-tree package config behavior while preserving target dependencies `Eigen3`, OpenCV, optional Pangolin, optional CUDA, and any currently supported TBB/OpenGL choices.
+- [ ] Align build-tree and install-tree package config behavior while preserving target dependencies `Eigen3`, OpenCV, optional CUDA, and any currently supported TBB/OpenGL choices, with Pangolin absent.
 - [ ] Ensure optional dependencies are exported only when actually enabled and required by the public interface.
 - [ ] Adapt the donor's source-release and nested-consumer tests to target headers and targets rather than template placeholder paths.
 

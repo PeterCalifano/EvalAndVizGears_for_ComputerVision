@@ -1,0 +1,77 @@
+schema_version: 1
+name: Unitree G1
+clock: source
+frames:
+  world: world
+  tracked: imu_in_torso
+robot:
+  root_frame: base_link
+  urdf:
+    package: legged_nav_system
+    path: profiles/g1/model.urdf
+  joint_topic: /nav/legged_nav/display/joint_states
+  sensor_frames:
+    imu_in_torso: imu
+    imu_in_pelvis: imu
+    g1_camera_optical_frame: camera
+    torso_camera_infra1_optical_frame: camera
+    torso_camera_color_optical_frame: camera
+inputs:
+  filter:
+    role: estimate
+    topic: /nav/legged_nav/filter/estimate
+    message_type: legged_nav_system_ros/msg/NavigationEstimate
+    required: true
+  graph:
+    role: estimate
+    topic: /nav/legged_nav/graph/estimate
+    message_type: legged_nav_system_ros/msg/NavigationEstimate
+  graph_path:
+    role: trajectory
+    estimator: graph
+    topic: /nav/legged_nav/graph/trajectory
+    message_type: nav_msgs/msg/Path
+  joints:
+    role: joints
+    topic: /nav/legged_nav/display/joint_states
+    message_type: sensor_msgs/msg/JointState
+  tf:
+    role: tf
+    topic: /tf
+    message_type: tf2_msgs/msg/TFMessage
+  tf_static:
+    role: tf_static
+    topic: /tf_static
+    message_type: tf2_msgs/msg/TFMessage
+  robot_description:
+    role: robot_description
+    topic: /nav/robot_description
+    message_type: std_msgs/msg/String
+  diagnostics:
+    role: diagnostics
+    topic: /nav/legged_nav/status
+    message_type: diagnostic_msgs/msg/DiagnosticArray
+  infrared_image:
+    role: image
+    topic: /camera/camera/infra1/image_rect_raw
+    message_type: sensor_msgs/msg/Image
+  graph_map:
+    role: point_cloud
+    topic: /nav/legged_nav/graph/map
+    message_type: sensor_msgs/msg/PointCloud2
+  reference:
+    role: reference
+    topic: /reference/odom
+    message_type: nav_msgs/msg/Odometry
+reference:
+  # Bind upstream-normalized truth on the estimator clock, in world, at the torso IMU.
+  # For the recorded Vicon take, configure the audited calibration and prepared CSV paths.
+  input: reference
+  alignment: none
+  # The recursive filter anchors initial_position_yaw and resets shared comparison state.
+  anchor_estimator: filter
+  max_gap_s: 0.1
+viewer:
+  bridge_url: ws://127.0.0.1:9090
+  namespace: /evalviz
+  retention_s: 30.0

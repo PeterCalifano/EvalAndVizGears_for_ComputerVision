@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evalviz-plotjuggler"
+version = "0.1.0"
+description = "Profile-driven estimator visualization, recording and review for PlotJuggler"
+requires-python = ">=3.12"
+dependencies = ["PyYAML>=6", "jsonschema>=4.10"]
+
+[project.optional-dependencies]
+analysis = ["numpy>=1.26", "scipy>=1.11"]
+test = ["evalviz-plotjuggler[analysis]", "pytest>=7.4"]
+
+[tool.setuptools.packages.find]
+include = ["evalviz_plotjuggler*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+evalviz_plotjuggler = ["visualization_profile.schema.json", "profiles/*.yml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "N", "C4", "PT", "PTH", "TID", "ANN", "D"]
+allowed-confusables = ["σ", "−"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "ANN"]
+"examples/**" = ["D", "ANN"]
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+python_version = "3.12"
+
+[[tool.mypy.overrides]]
+module = [
+    "ament_index_python.packages",
+    "anyio",
+    "anyio.to_thread",
+    "builtin_interfaces.msg",
+    "diagnostic_msgs.msg",
+    "geometry_msgs.msg",
+    "mcp",
+    "mcp.*",
+    "nav_msgs.msg",
+    "rclpy",
+    "rclpy.*",
+    "rosbag2_py",
+    "rosidl_runtime_py.utilities",
+    "sensor_msgs.msg",
+    "std_msgs.msg",
+    "tf2_msgs.msg",
+    "visualization_msgs.msg",
+    "matplotlib",
+    "matplotlib.pyplot",
+    "scipy.spatial.transform",
+]
+ignore_missing_imports = true

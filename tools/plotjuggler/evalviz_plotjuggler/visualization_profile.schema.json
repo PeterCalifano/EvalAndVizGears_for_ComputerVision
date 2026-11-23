@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EvalViz PlotJuggler profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "inputs", "frames", "viewer"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1},
+    "name": {"$ref": "#/$defs/text"},
+    "clock": {
+      "$ref": "#/$defs/text",
+      "description": "Acquisition clock identifier for inputs without an explicit clock.",
+      "default": "source"
+    },
+    "inputs": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"$ref": "#/$defs/input_name"},
+      "additionalProperties": {"$ref": "#/$defs/input"}
+    },
+    "robot": {"$ref": "#/$defs/robot"},
+    "frames": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["world", "tracked"],
+      "properties": {
+        "world": {"$ref": "#/$defs/frame"},
+        "tracked": {"$ref": "#/$defs/frame"}
+      }
+    },
+    "viewer": {"$ref": "#/$defs/viewer"},
+    "reference": {"$ref": "#/$defs/reference"},
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topics"],
+      "properties": {
+        "topics": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/topic"},
+          "uniqueItems": true
+        }
+      }
+    }
+  },
+  "$defs": {
+    "text": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "input_name": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+    "topic": {
+      "type": "string",
+      "pattern": "^(/[A-Za-z_][A-Za-z0-9_]*)+$",
+      "description": "Fully qualified ROS 2 topic."
+    },
+    "frame": {
+      "type": "string",
+      "pattern": "^[^/\\s][^\\s]*$",
+      "description": "TF frame ID without a leading slash."
+    },
+    "positive_seconds": {"type": "number", "exclusiveMinimum": 0},
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "topic", "message_type"],
+      "properties": {
+        "role": {
+          "enum": [
+            "estimate", "reference", "joints", "tf", "tf_static", "robot_description",
+            "diagnostics", "trajectory", "image", "point_cloud"
+          ]
+        },
+        "adapter": {"const": "ros2", "default": "ros2"},
+        "topic": {"$ref": "#/$defs/topic"},
+        "message_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*/msg/[A-Z][A-Za-z0-9]*$"
+        },
+        "required": {"type": "boolean", "default": false},
+        "clock": {
+          "$ref": "#/$defs/text",
+          "description": "Acquisition clock for this input. Defaults to the profile clock."
+        },
+        "covariance_chart": {
+          "enum": ["world_position_right_rotation", "world_position_fixed_rotation"],
+          "description": "Declared convention for pose covariance carried in Odometry or a normalized JSON Lines estimate."
+        },
+        "encoding": {
+          "const": "evalviz_jsonl_v1",
+          "description": "The std_msgs/msg/String topic carries one normalized native pose record per message."
+        },
+        "velocity": {
+          "type": "boolean",
+          "description": "Normalized JSON Lines estimate records carry world velocity, so the layout plots it."
+        },
+        "estimator": {
+          "$ref": "#/$defs/input_name",
+          "description": "Estimate input associated with a trajectory layer."
+        }
+      },
+      "dependentSchemas": {
+        "estimator": {"properties": {"role": {"const": "trajectory"}}},
+        "covariance_chart": {"properties": {"role": {"const": "estimate"}, "message_type": {"enum": ["nav_msgs/msg/Odometry", "std_msgs/msg/String"]}}},
+        "encoding": {"properties": {"role": {"enum": ["estimate", "reference"]}, "message_type": {"const": "std_msgs/msg/String"}}},
+        "velocity": {"required": ["encoding"], "properties": {"role": {"const": "estimate"}}}
+      }
+    },
+    "robot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root_frame", "urdf"],
+      "properties": {
+        "root_frame": {"$ref": "#/$defs/frame"},
+        "urdf": {"$ref": "#/$defs/urdf"},
+        "joint_topic": {"$ref": "#/$defs/topic"},
+        "sensor_frames": {
+          "type": "object",
+          "propertyNames": {"$ref": "#/$defs/frame"},
+          "additionalProperties": {"enum": ["camera", "imu", "lidar"]}
+        }
+      }
+    },
+    "urdf": {
+      "description": "A local URDF or Xacro path, optionally relative to a ROS package share.",
+      "oneOf": [
+        {"$ref": "#/$defs/text"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path"],
+          "properties": {
+            "path": {"$ref": "#/$defs/text"},
+            "package": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+          },
+          "dependentSchemas": {
+            "package": {
+              "properties": {
+                "path": {
+                  "pattern": "^(?![/\\\\])(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "viewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bridge_url"],
+      "properties": {
+        "bridge_url": {"type": "string", "pattern": "^wss?://[^/\\s]+(/[^\\s]*)?$"},
+        "namespace": {"$ref": "#/$defs/topic", "default": "/evalviz"},
+        "asset_url": {"type": "string", "pattern": "^https?://[^/\\s]+(/[^\\s]*)?$"},
+        "package_url_roots": {
+          "type": "object",
+          "description": "HTTPS asset directories for packages referenced by URDF package:// URIs.",
+          "propertyNames": {"pattern": "^[a-z][a-z0-9_]*$"},
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^https://[^/\\s]+(/[^\\s]*)?$"
+          }
+        },
+        "retention_s": {"$ref": "#/$defs/positive_seconds", "default": 30.0}
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "input": {"$ref": "#/$defs/input_name"},
+        "clock": {
+          "$ref": "#/$defs/text",
+          "description": "Clock of the live reference input before the optional offset. Defaults to that input's clock; a value other than the profile clock needs clock_offset_ns."
+        },
+        "clock_offset_ns": {
+          "type": "integer",
+          "description": "Signed offset added to reference stamps to obtain source stamps."
+        },
+        "world_frame": {"$ref": "#/$defs/frame"},
+        "tracked_frame": {"$ref": "#/$defs/frame"},
+        "max_gap_s": {"$ref": "#/$defs/positive_seconds"},
+        "alignment": {"enum": ["none", "initial_position_yaw"]},
+        "anchor_estimator": {
+          "$ref": "#/$defs/input_name",
+          "description": "Estimate input that freezes initial_position_yaw. Required with that alignment."
+        },
+        "anchor_window_s": {"$ref": "#/$defs/positive_seconds"},
+        "tracked_from_navigation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["position", "quaternion_xyzw"],
+          "properties": {
+            "position": {
+              "type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}
+            },
+            "quaternion_xyzw": {
+              "type": "array", "minItems": 4, "maxItems": 4, "items": {"type": "number"}
+            }
+          }
+        },
+        "calibration_path": {"$ref": "#/$defs/text"},
+        "prepared_csv": {"$ref": "#/$defs/text"}
+      }
+    }
+  }
+}

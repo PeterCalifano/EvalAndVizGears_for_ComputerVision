@@ -196,7 +196,10 @@ class PoseRecord:
         if (self.covariance is None) != (self.covariance_chart is None):
             raise ProtocolError("covariance and covariance_chart must be given together")
         if self.covariance_chart is not None:
-            if self.covariance_chart not in COVARIANCE_CHARTS:
+            if (
+                not isinstance(self.covariance_chart, str)
+                or self.covariance_chart not in COVARIANCE_CHARTS
+            ):
                 raise ProtocolError(
                     f"covariance_chart {self.covariance_chart!r} is not one of "
                     f"{sorted(COVARIANCE_CHARTS)}"

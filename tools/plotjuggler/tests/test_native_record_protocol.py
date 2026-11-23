@@ -132,6 +132,76 @@ def test_malformed_pose_fields_are_rejected(change: dict[str, object], message: 
         decode_record(json.dumps(document))
 
 
+@pytest.mark.parametrize(
+    "document",
+    [
+        pytest.param(
+            _pose_document()
+            | {
+                "velocity_world_mps": [0.1, 0.2, 0.3],
+                "covariance_chart": RIGHT_ROTATION_CHART,
+                "covariance": [0.0] * 36,
+            },
+            id="pose",
+        ),
+        pytest.param(
+            {
+                "version": 1,
+                "kind": "joints",
+                "input": "joints",
+                "stamp_ns": 0,
+                "names": ["shoulder"],
+                "positions": [0.25],
+                "velocities": [0.5],
+            },
+            id="joints",
+        ),
+        pytest.param(
+            {
+                "version": 1,
+                "kind": "transform",
+                "input": "tf",
+                "stamp_ns": 0,
+                "parent": "world",
+                "child": "base_link",
+                "translation_m": [1.0, 2.0, 3.0],
+                "quaternion_xyzw": [0.0, 0.0, 0.0, 1.0],
+            },
+            id="transform",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "value",
+    [None, True, 1, 1.0, "x", ["x"], {"x": 1}],
+    ids=["null", "bool", "integer", "float", "string", "list", "object"],
+)
+def test_wrong_wire_field_types_raise_protocol_error(
+    document: dict[str, object], value: object
+) -> None:
+    """Reject wrong JSON types in each wire field and array element.
+
+    Args:
+        document: Valid wire record with every optional field populated.
+        value: JSON value to substitute wherever its type is invalid.
+    """
+    decode_record(json.dumps(document).encode())
+    for field, valid_value in document.items():
+        nullable = field in {"velocity_world_mps", "velocities"}
+        if type(value) is not type(valid_value) and (value is not None or not nullable):
+            with pytest.raises(ProtocolError, match=field):
+                decode_record(json.dumps(document | {field: value}).encode())
+
+        if isinstance(valid_value, list):
+            element_types = (str,) if field == "names" else (int, float)
+            if type(value) not in element_types:
+                message = "joint name" if field == "names" else field
+                with pytest.raises(ProtocolError, match=message):
+                    decode_record(
+                        json.dumps(document | {field: [value, *valid_value[1:]]}).encode()
+                    )
+
+
 def test_missing_wire_key_is_rejected() -> None:
     """Require session on the wire even though the Python record defaults it."""
     document = _pose_document()

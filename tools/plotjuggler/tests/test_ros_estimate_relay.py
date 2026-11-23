@@ -144,6 +144,53 @@ def test_slow_replay_freezes_alignment_from_source_time() -> None:
             assert result.values["error_attitude_rad_norm"] == pytest.approx(0.0, abs=1e-9)
 
 
+def test_live_reference_rewind_discards_pending_estimates_and_refits_alignment() -> None:
+    """Discard a pending 2 s estimate on reference rewind and fit the new epoch."""
+    from dataclasses import replace
+
+    matcher = matcher_for(aligned_binding(), FakeWall())
+    for step in range(100):
+        stamp_ns = step * STEP_NS
+        matcher.add_reference(reference_at(stamp_ns))
+        assert matcher.admit("filter", estimate_at(stamp_ns))
+        matcher.release()
+    assert matcher.alignment is not None
+
+    assert matcher.admit("filter", estimate_at(2 * SECOND_NS))
+    assert matcher.release() == []
+
+    new_references = []
+    for step in range(152):
+        reference = reference_at(step * STEP_NS)
+        x, y, z = reference.position
+        new_references.append(replace(reference, position=(x + 9.0, y, z)))
+    for reference in new_references[:101]:
+        matcher.add_reference(reference)
+
+    released = matcher.release()
+    assert released == [], [
+        (result.sample.stamp_ns, result.outcome, result.values.get("error_position_m_norm"))
+        for result in released
+    ]
+    assert matcher.alignment is None
+    assert matcher.reference_counts["resets"] == 1
+
+    # Continue past the last admitted stamp so an estimate rewind cannot reset the matcher.
+    results = []
+    for reference in new_references[101:]:
+        matcher.add_reference(reference)
+        assert matcher.admit("filter", estimate_at(reference.stamp_ns))
+        results.extend(matcher.release())
+
+    assert matcher.alignment is not None
+    assert [result.sample.stamp_ns for result in results] == [
+        reference.stamp_ns for reference in new_references[101:]
+    ]
+    assert {result.outcome for result in results} == {MatchOutcome.MATCHED}
+    for result in results:
+        assert result.values["error_position_m_norm"] == pytest.approx(0.0, abs=1e-9)
+
+
 def test_missing_reference_is_reported_after_source_wait_without_polling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

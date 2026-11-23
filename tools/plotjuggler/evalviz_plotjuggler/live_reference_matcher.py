@@ -247,6 +247,9 @@ class LiveMatcher:
     def add_reference(self, sample: PoseSample) -> None:
         """Store a live reference already on the source clock and estimate frame.
 
+        A rewind discards the previous live reference samples, pending comparisons,
+        anchor pairs and alignment before storing the first sample of the new epoch.
+
         Args:
             sample: Prepared reference sample.
         """
@@ -254,7 +257,7 @@ class LiveMatcher:
             return
         newest = self.truth.newest_ns
         if newest is not None and sample.stamp_ns + REWIND_NS < newest:
-            self.truth.clear()
+            self._reset_shared(sample.stamp_ns)
             self.reference_counts["resets"] += 1
         self.truth.add(sample)
         self.reference_counts["received"] += 1

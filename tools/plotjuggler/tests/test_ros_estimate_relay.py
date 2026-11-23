@@ -8,7 +8,7 @@ import pytest
 from scipy.spatial.transform import Rotation
 
 from evalviz_plotjuggler.estimate_decoding import DecodedEstimate
-from evalviz_plotjuggler.live_reference_matcher import REWIND_NS, LiveMatcher, MatchOutcome
+from evalviz_plotjuggler.live_reference_matcher import LiveMatcher, MatchOutcome
 from evalviz_plotjuggler.reference_comparison import (
     PoseSample,
     ReferenceBinding,
@@ -214,7 +214,7 @@ def test_missing_reference_is_reported_after_source_wait_without_polling(
         matcher.admit("filter", estimate_at(step * STEP_NS))
     released = matcher.release()
 
-    # 2 s of source progress releases everything older than the 0.3 s allowance.
+    # The first held stamp is exactly 0.3 s behind the latest estimate.
     assert [result.sample.stamp_ns for result in released] == [step * STEP_NS for step in range(84)]
     assert {result.outcome for result in released} == {MatchOutcome.REFERENCE_NOT_RECEIVED}
     assert all(result.values == {"reference_valid": 0} for result in released)
@@ -224,6 +224,12 @@ def test_missing_reference_is_reported_after_source_wait_without_polling(
     for _ in range(10):
         assert matcher.release() == []
     assert lookups == 10, "a waiting stream must look up only its oldest entry per release"
+
+    first_held_stamp = 84 * STEP_NS
+    assert matcher.admit("filter", estimate_at(first_held_stamp + 300_000_001))
+    (result,) = matcher.release()
+    assert result.sample.stamp_ns == first_held_stamp
+    assert result.outcome is MatchOutcome.REFERENCE_NOT_RECEIVED
 
 
 def test_pending_estimates_respect_the_fixed_bound() -> None:
@@ -302,9 +308,10 @@ def test_graph_revision_of_an_older_stamp_is_not_a_rewind() -> None:
     matcher = matcher_for(binding, FakeWall())
     late = 5 * SECOND_NS
     assert matcher.admit("graph", estimate_at(late, revision=10))
-    assert not matcher.admit("graph", estimate_at(late - REWIND_NS - STEP_NS, revision=11))
+    assert not matcher.admit("graph", estimate_at(late - 1_000_000_001, revision=11))
+    assert not matcher.admit("graph", estimate_at(late - 1_000_000_000, revision=9))
     assert matcher.states["graph"].counts["resets"] == 0
-    assert matcher.admit("graph", estimate_at(0, revision=1))
+    assert matcher.admit("graph", estimate_at(late - 1_000_000_001, revision=9))
     assert matcher.states["graph"].counts["resets"] == 1
 
 

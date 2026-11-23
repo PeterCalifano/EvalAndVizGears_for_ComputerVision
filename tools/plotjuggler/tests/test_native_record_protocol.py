@@ -8,7 +8,6 @@ from collections.abc import Callable
 import pytest
 
 from evalviz_plotjuggler.native_record_protocol import (
-    MAX_STAMP_NS,
     RIGHT_ROTATION_CHART,
     JointRecord,
     LineFramer,
@@ -93,9 +92,10 @@ def test_encoding_is_canonical_for_equal_records() -> None:
 
 def test_stamp_range_matches_ros_time() -> None:
     """Accept the last stamp a ROS Time holds and reject the next one."""
-    assert _joints(MAX_STAMP_NS).stamp_ns == MAX_STAMP_NS
+    last_ros_stamp_ns = 2_147_483_647_999_999_999  # int32 seconds plus 999,999,999 ns.
+    assert _joints(last_ros_stamp_ns).stamp_ns == last_ros_stamp_ns
     with pytest.raises(ProtocolError, match="stamp_ns"):
-        _joints(MAX_STAMP_NS + 1)
+        _joints(last_ros_stamp_ns + 1)
 
 
 @pytest.mark.parametrize(

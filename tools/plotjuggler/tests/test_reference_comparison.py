@@ -12,6 +12,7 @@ from scipy.spatial.transform import Rotation
 
 from evalviz_plotjuggler.reference_comparison import (
     NAVIGATION_CHART,
+    POSE_CHART,
     PoseSample,
     ReferenceBuffer,
     compare,
@@ -96,6 +97,42 @@ def test_posterior_bounds_follow_the_navigation_block_order() -> None:
     assert not posterior_sigmas(replace(estimate, covariance=(-1.0, *covariance[1:])))
     with pytest.raises(ValueError, match="same source time"):
         compare(estimate, sample(101))
+
+
+@pytest.mark.parametrize(
+    ("diagonal", "upper_xy", "lower_xy"),
+    [
+        pytest.param(1.0, float("nan"), 0.0, id="nan"),
+        pytest.param(1.0, float("inf"), 0.0, id="infinite"),
+        pytest.param(1.0, 0.5, 0.0, id="asymmetric"),
+        pytest.param(1.0, 2.0, 2.0, id="negative-eigenvalue"),
+        pytest.param(0.0, 0.0, 0.0, id="all-zero"),
+    ],
+)
+def test_unusable_covariance_has_no_posterior_sigmas(
+    diagonal: float, upper_xy: float, lower_xy: float
+) -> None:
+    """Return no sigmas for invalid covariance or an all-zero missing posterior."""
+    covariance = [diagonal if row == col else 0.0 for row in range(6) for col in range(6)]
+    covariance[1], covariance[6] = upper_xy, lower_xy
+    estimate = replace(sample(), covariance=tuple(covariance), chart=POSE_CHART)
+    assert posterior_sigmas(estimate) == {}
+
+
+def test_posterior_sigmas_are_square_roots_of_covariance_diagonal() -> None:
+    """Return one marginal sigma per pose axis for a valid correlated covariance."""
+    diagonal = (1.0, 4.0, 9.0, 16.0, 25.0, 36.0)
+    covariance = [diagonal[row] if row == col else 0.0 for row in range(6) for col in range(6)]
+    covariance[1] = covariance[6] = 0.5
+    estimate = replace(sample(), covariance=tuple(covariance), chart=POSE_CHART)
+    assert posterior_sigmas(estimate) == {
+        "position_m_x": 1.0,
+        "position_m_y": 2.0,
+        "position_m_z": 3.0,
+        "attitude_rad_x": 4.0,
+        "attitude_rad_y": 5.0,
+        "attitude_rad_z": 6.0,
+    }
 
 
 def test_attitude_error_is_right_local_at_the_estimate() -> None:

@@ -26,6 +26,7 @@ from .reference_comparison import (
 )
 
 MAX_PENDING = 8192
+MAX_ANCHOR_PAIRS = 8192
 # A backward source step larger than this starts a new replay epoch.
 REWIND_NS = 1_000_000_000
 # Source-time allowance for a reference that arrives after its estimate.
@@ -122,7 +123,13 @@ class ComparisonResult:
 
 
 class LiveMatcher:
-    """Admit estimates and release reference comparisons in source-time order."""
+    """Admit estimates and release reference comparisons in source-time order.
+
+    The fit keeps the first 8,192 matched anchor stamps in the anchor window.
+    Additional in-window pairs increment the anchor stream's
+    `anchor_pair_drops` counter. A matched stamp at or past the window end
+    can still trigger the fit when the store is full.
+    """
 
     def __init__(
         self,
@@ -196,6 +203,8 @@ class LiveMatcher:
         it carries an optimizer revision at least as new as the last one. A
         session change of the anchor, or any rewind, resets the shared
         comparison; another stream's session change resets only that stream.
+        A same-stamp revision eligible for comparison also updates its
+        retained anchor pair until the alignment freezes.
 
         Args:
             name: Estimate input name.
@@ -314,14 +323,20 @@ class LiveMatcher:
                 self._add_anchor_pair(name, entry.estimate.sample, reference)
 
     def _add_anchor_pair(self, name: str, estimate: PoseSample, reference: PoseSample) -> None:
-        """Collect anchor pairs and freeze once they span the anchor window."""
+        """Store or revise a fit pair and freeze at the anchor-window boundary."""
         binding = self.binding
         assert binding is not None
         if not binding.alignment or self.alignment is not None or name != binding.anchor:
             return
+        if self.pairs and self.pairs[-1][0].stamp_ns == estimate.stamp_ns:
+            self.pairs[-1] = (estimate, reference)
+            return
         elapsed = estimate.stamp_ns - self.pairs[0][0].stamp_ns if self.pairs else 0
         if elapsed <= binding.anchor_window_ns:
-            self.pairs.append((estimate, reference))
+            if len(self.pairs) < MAX_ANCHOR_PAIRS:
+                self.pairs.append((estimate, reference))
+            else:
+                self.states[name].counts["anchor_pair_drops"] += 1
         if elapsed >= binding.anchor_window_ns and len(self.pairs) >= 2:
             self.alignment = fit_initial_yaw(self.pairs)
 
@@ -372,9 +387,12 @@ class LiveMatcher:
 
     def _enqueue(self, name: str, estimate: DecodedEstimate) -> None:
         """Queue an estimate, replacing a pending one at the same stamp."""
+        sample = estimate.sample
+        if self.pairs and self.pairs[-1][0].stamp_ns == sample.stamp_ns:
+            self._add_anchor_pair(name, sample, self.pairs[-1][1])
         queue = self.queues[name]
         tail = queue.tail()
-        if tail is not None and tail.stamp_ns == estimate.sample.stamp_ns:
+        if tail is not None and tail.stamp_ns == sample.stamp_ns:
             tail.estimate = estimate
             return
         queue.unresolved.append(_Pending(estimate))

@@ -191,6 +191,55 @@ def test_live_reference_rewind_discards_pending_estimates_and_refits_alignment()
         assert result.values["error_position_m_norm"] == pytest.approx(0.0, abs=1e-9)
 
 
+def test_resolved_anchor_revision_replaces_the_fit_sample() -> None:
+    """Fit and compare with the newer revision of a resolved, held anchor."""
+    matcher = LiveMatcher(aligned_binding(), clock=lambda: 1.0)
+    matcher.add_stream("filter")
+    matcher.add_reference(reference_at(0))
+    assert matcher.admit("filter", estimate_at(0, offset_x_m=4.0, revision=1))
+    assert matcher.release() == []
+
+    assert matcher.admit("filter", estimate_at(0, revision=2))
+    matcher.add_reference(reference_at(SECOND_NS))
+    assert matcher.admit("filter", estimate_at(SECOND_NS))
+    first, last = matcher.release()
+
+    assert matcher.alignment is not None
+    assert matcher.alignment.translation == pytest.approx(ALIGNMENT_TRANSLATION_M)
+    assert (first.sample.stamp_ns, first.sample.revision) == (0, 2)
+    assert last.sample.stamp_ns == SECOND_NS
+    for result in (first, last):
+        assert result.outcome == MatchOutcome.MATCHED
+        assert result.values["error_position_m_norm"] == pytest.approx(0.0, abs=1e-12)
+
+
+def test_anchor_pair_cap_keeps_first_window_origin_and_counts_drops() -> None:
+    """Bound the fit samples independently of pending estimates and still freeze on time."""
+    matcher = LiveMatcher(aligned_binding(), clock=lambda: 1.0, max_pending=5)
+    matcher.add_stream("filter")
+    for step in range(8_193):
+        stamp = step * 100_000  # 10 kHz leaves all these pairs inside the one-second window.
+        reference = PoseSample(stamp, "world", "imu", (0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
+        estimate = reference if step < 8_192 else estimate_at(stamp, session=0).sample
+        matcher.add_reference(reference)
+        assert matcher.admit("filter", DecodedEstimate(estimate, {}, {}))
+        assert matcher.release() == []
+
+    counts = matcher.states["filter"].counts
+    assert matcher.pending == 5
+    assert matcher.alignment is None
+    assert len(matcher.pairs) == 8_192
+    assert counts["anchor_pair_drops"] == 1
+    assert counts["pending_drops"] == 8_188
+
+    matcher.add_reference(reference_at(SECOND_NS))
+    assert matcher.admit("filter", estimate_at(SECOND_NS, session=0))
+    assert len(matcher.release()) == 5
+    assert matcher.alignment is not None
+    assert matcher.alignment.translation == pytest.approx((0.0, 0.0, 0.0))
+    assert counts["anchor_pair_drops"] == 2
+
+
 def test_missing_reference_is_reported_after_source_wait_without_polling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
